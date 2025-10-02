@@ -29,6 +29,10 @@ def get_db_connection():
 @app.route("/cadastro", methods=['POST'])
 def cadastrar_usuario():
     data = request.get_json()
+
+    print("--- NOVA REQUISIÇÃO DE CADASTRO ---")
+    print("DADOS RECEBIDOS:", data)
+    
     nome = data.get('NomeUsuario')
     email = data.get('Email')
     senha = data.get('Senha')
