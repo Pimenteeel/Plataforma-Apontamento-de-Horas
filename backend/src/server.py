@@ -1,4 +1,6 @@
 import os
+import jwt
+import datetime
 from flask import Flask, request, jsonify
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
@@ -10,33 +12,26 @@ load_dotenv()
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
 CORS(app)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-# --- Função de Conexão com o Banco de Dados ---
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE')
+            host=os.getenv('DB_HOST'), user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'), database=os.getenv('DB_DATABASE')
         )
         return conn
     except mysql.connector.Error as err:
         print(f"Erro de conexão com o DB: {err}")
         return None
 
-# --- Rota de Cadastro de Usuário ---
 @app.route("/cadastro", methods=['POST'])
 def cadastrar_usuario():
     data = request.get_json()
-
-    print("--- NOVA REQUISIÇÃO DE CADASTRO ---")
-    print("DADOS RECEBIDOS:", data)
-    
     nome = data.get('NomeUsuario')
     email = data.get('Email')
     senha = data.get('Senha')
-    time_id = data.get('fk_ID_Time') # Novo campo!
+    time_id = data.get('fk_ID_Time')
 
     if not nome or not email or not senha or not time_id:
         return jsonify({'status': 'erro', 'mensagem': 'Dados incompletos'}), 400
@@ -48,7 +43,6 @@ def cadastrar_usuario():
 
     cursor = conn.cursor()
     try:
-        # Query atualizada com os nomes exatos das suas colunas
         query = "INSERT INTO Usuario (NomeUsuario, Email, Senha, fk_ID_Time) VALUES (%s, %s, %s, %s)"
         cursor.execute(query, (nome, email, senha_hash, time_id))
         conn.commit()
@@ -61,7 +55,45 @@ def cadastrar_usuario():
         cursor.close()
         conn.close()
 
-# --- AQUI VAI A ROTA DE LOGIN ---
+
+# --- ROTA DE LOGIN DE USUÁRIO (ATUALIZADA) ---
+@app.route("/login", methods=['POST'])
+def login_usuario():
+    data = request.get_json()
+    email = data.get('Email')
+    senha_digitada = data.get('Senha')
+
+    if not email or not senha_digitada:
+        return jsonify({'status': 'erro', 'mensagem': 'Email e Senha são obrigatórios'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Não foi possível conectar ao banco de dados'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    query = "SELECT * FROM Usuario WHERE Email = %s"
+    cursor.execute(query, (email,))
+    usuario = cursor.fetchone()
+
+    # Verifica se o usuário existe e se a senha está correta
+    if usuario and bcrypt.check_password_hash(usuario['Senha'], senha_digitada):
+        # Se o login estiver correto, GERE O TOKEN!
+        token = jwt.encode({
+            'user_id': usuario['ID'],
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expira em 24 horas
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+        
+        cursor.close()
+        conn.close()
+
+        # Retorna o token para o frontend
+        return jsonify({'status': 'sucesso', 'token': token}), 200
+    else:
+        # Falha no login (usuário não encontrado ou senha incorreta)
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': 'Email ou senha inválidos'}), 401
+
 
 if __name__ == "__main__":
     app.run(debug=True)
