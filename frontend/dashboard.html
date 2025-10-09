@@ -7,12 +7,50 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">NEODENT</div>
+            <nav class="sidebar-nav">
+                <h3>APONTAMENTOS</h3>
+                <ul>
+                    <li><a href="#">CRONÔMETRO</a></li>
+                    <li><a href="#">PLANILHA</a></li>
+                </ul>
+                <h3>RELATÓRIOS</h3>
+                <ul>
+                    <li><a href="#">DETALHADO</a></li>
+                    <li><a href="#">RESUMIDO</a></li>
+                </ul>
+                <h3>EQUIPE</h3>
+                <ul>
+                    <li><a href="#">DETALHADO</a></li>
+                    <li><a href="#">RESUMIDO</a></li>
+                    <li><a href="#">GESTÃO</a></li>
+                </ul>
+            </nav>
+            <button id="logout-btn">SAIR</button>
+        </aside>
 
-    <div class="login-container">
-        <h1>BEM-VINDO(A)!</h1>
-        <p>Você está logado na plataforma de apontamento de horas.</p>
-        
-        <button id="logout-btn">SAIR</button>
+        <main class="main-content">
+            <div class="timer-bar">
+                <select id="pilar-select" required>
+                    <option value="">Selecione o Pilar</option>
+                    </select>
+                
+                <select id="projeto-select" required disabled>
+                    <option value="">Selecione o Projeto</option>
+                    </select>
+
+                <input type="text" id="observacao-input" placeholder="Adicione uma observação (iniciativa)" required>
+                
+                <div id="timer-display">00:00:00</div>
+                <button id="start-stop-btn">INICIAR</button>
+            </div>
+
+            <div class="content-area">
+                <h2>Meus Apontamentos (Em breve)</h2>
+            </div>
+        </main>
     </div>
 
     <script src="dashboard.js" defer></script>

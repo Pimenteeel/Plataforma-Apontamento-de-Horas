@@ -1,29 +1,91 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // 1. LÓGICA DE PROTEÇÃO DA PÁGINA
-    // Pega o token que salvamos no localStorage durante o login
+    // --- 1. LÓGICA DE PROTEÇÃO E LOGOUT (Já existente) ---
     const token = localStorage.getItem('token');
-
-    // Se NÃO houver um token...
     if (!token) {
-        // Redireciona o usuário de volta para a tela de login, pois ele não está autenticado.
         alert("Você precisa estar logado para acessar esta página.");
         window.location.href = 'login.html';
+        return; // Para a execução do script se não houver token
     }
 
-    // 2. LÓGICA DO BOTÃO DE LOGOUT
     const logoutButton = document.getElementById('logout-btn');
-
-    // Se o botão existir na página...
     if (logoutButton) {
         logoutButton.addEventListener('click', function() {
-            // Remove o token do "cofre" do navegador
             localStorage.removeItem('token');
-
-            // Avisa o usuário e o redireciona para a tela de login
             alert("Você saiu da sua conta.");
             window.location.href = 'login.html';
         });
     }
+
+    // --- 2. CAPTURAR OS NOVOS ELEMENTOS DO HTML ---
+    const pilarSelect = document.getElementById('pilar-select');
+    const projetoSelect = document.getElementById('projeto-select');
+    
+    // --- 3. FUNÇÃO PARA BUSCAR E PREENCHER OS PILARES ---
+    function carregarPilares() {
+        fetch('http://127.0.0.1:5000/pilares', {
+            method: 'GET',
+            headers: {
+                // No futuro, enviaremos o token aqui para rotas protegidas
+                // 'Authorization': `Bearer ${token}` 
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                // Limpa o select antes de adicionar novas opções
+                pilarSelect.innerHTML = '<option value="">Selecione o Pilar</option>';
+                
+                // Para cada pilar retornado pela API, cria um <option>
+                data.pilares.forEach(pilar => {
+                    const option = document.createElement('option');
+                    option.value = pilar.ID_Pilar;
+                    option.textContent = pilar.NomePilar;
+                    pilarSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao buscar pilares:', error));
+    }
+
+    // --- 4. FUNÇÃO PARA BUSCAR PROJETOS QUANDO UM PILAR É SELECIONADO ---
+    function carregarProjetos(pilarId) {
+        // Se nenhum pilar for selecionado, desabilita e limpa o select de projetos
+        if (!pilarId) {
+            projetoSelect.innerHTML = '<option value="">Selecione o Projeto</option>';
+            projetoSelect.disabled = true;
+            return;
+        }
+
+        // Busca os projetos filtrando pelo pilar selecionado
+        fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                projetoSelect.innerHTML = '<option value="">Selecione o Projeto</option>';
+                data.projetos.forEach(projeto => {
+                    const option = document.createElement('option');
+                    option.value = projeto.ID_Projeto;
+                    option.textContent = projeto.NomeProjeto;
+                    projetoSelect.appendChild(option);
+                });
+                // Habilita o select de projetos
+                projetoSelect.disabled = false;
+            }
+        })
+        .catch(error => console.error('Erro ao buscar projetos:', error));
+    }
+
+    // --- 5. ADICIONAR OS "ESCUTADORES DE EVENTOS" ---
+    
+    // Quando o usuário muda o valor do select de Pilar...
+    pilarSelect.addEventListener('change', function() {
+        const pilarSelecionadoId = pilarSelect.value;
+        carregarProjetos(pilarSelecionadoId);
+    });
+
+    // --- 6. INICIALIZAÇÃO ---
+    // Carrega a lista de pilares assim que a página é carregada
+    carregarPilares();
 
 });
