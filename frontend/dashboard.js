@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- 1. LÓGICA DE PROTEÇÃO E LOGOUT (Já existente) ---
+    // --- LÓGICA DE PROTEÇÃO E LOGOUT ---
     const token = localStorage.getItem('token');
     if (!token) {
         alert("Você precisa estar logado para acessar esta página.");
         window.location.href = 'login.html';
-        return; // Para a execução do script se não houver token
+        return;
     }
 
     const logoutButton = document.getElementById('logout-btn');
@@ -17,26 +17,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- 2. CAPTURAR OS NOVOS ELEMENTOS DO HTML ---
+    // --- LÓGICA DO CRONÔMETRO (CARREGAR DADOS) ---
     const pilarSelect = document.getElementById('pilar-select');
     const projetoSelect = document.getElementById('projeto-select');
     
-    // --- 3. FUNÇÃO PARA BUSCAR E PREENCHER OS PILARES ---
     function carregarPilares() {
-        fetch('http://127.0.0.1:5000/pilares', {
-            method: 'GET',
-            headers: {
-                // No futuro, enviaremos o token aqui para rotas protegidas
-                // 'Authorization': `Bearer ${token}` 
-            }
-        })
+        fetch('http://127.0.0.1:5000/pilares')
         .then(response => response.json())
         .then(data => {
             if (data.status === 'sucesso') {
-                // Limpa o select antes de adicionar novas opções
                 pilarSelect.innerHTML = '<option value="">Selecione o Pilar</option>';
-                
-                // Para cada pilar retornado pela API, cria um <option>
                 data.pilares.forEach(pilar => {
                     const option = document.createElement('option');
                     option.value = pilar.ID_Pilar;
@@ -48,16 +38,13 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => console.error('Erro ao buscar pilares:', error));
     }
 
-    // --- 4. FUNÇÃO PARA BUSCAR PROJETOS QUANDO UM PILAR É SELECIONADO ---
     function carregarProjetos(pilarId) {
-        // Se nenhum pilar for selecionado, desabilita e limpa o select de projetos
         if (!pilarId) {
             projetoSelect.innerHTML = '<option value="">Selecione o Projeto</option>';
             projetoSelect.disabled = true;
             return;
         }
 
-        // Busca os projetos filtrando pelo pilar selecionado
         fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`)
         .then(response => response.json())
         .then(data => {
@@ -69,23 +56,58 @@ document.addEventListener('DOMContentLoaded', function() {
                     option.textContent = projeto.NomeProjeto;
                     projetoSelect.appendChild(option);
                 });
-                // Habilita o select de projetos
                 projetoSelect.disabled = false;
             }
         })
         .catch(error => console.error('Erro ao buscar projetos:', error));
     }
 
-    // --- 5. ADICIONAR OS "ESCUTADORES DE EVENTOS" ---
-    
-    // Quando o usuário muda o valor do select de Pilar...
     pilarSelect.addEventListener('change', function() {
         const pilarSelecionadoId = pilarSelect.value;
         carregarProjetos(pilarSelecionadoId);
     });
 
-    // --- 6. INICIALIZAÇÃO ---
-    // Carrega a lista de pilares assim que a página é carregada
     carregarPilares();
 
+    // --- LÓGICA DE NAVEGAÇÃO ENTRE AS TELAS ---
+    const navCronometro = document.getElementById('nav-cronometro');
+    const navPlanilha = document.getElementById('nav-planilha');
+    const navRelatorioDetalhado = document.getElementById('nav-relatorio-detalhado');
+    const navGestao = document.getElementById('nav-gestao');
+    
+    const views = document.querySelectorAll('.view');
+
+    function showView(viewId) {
+        views.forEach(view => {
+            view.style.display = 'none';
+        });
+        
+        const viewToShow = document.getElementById(viewId);
+        if (viewToShow) {
+            viewToShow.style.display = 'block';
+        }
+    }
+
+    navCronometro.addEventListener('click', function(event) {
+        event.preventDefault();
+        showView('cronometro-view');
+    });
+
+    navPlanilha.addEventListener('click', function(event) {
+        event.preventDefault();
+        showView('planilha-view');
+    });
+
+    navRelatorioDetalhado.addEventListener('click', function(event) {
+        event.preventDefault();
+        showView('relatorio-detalhado-view');
+    });
+
+    navGestao.addEventListener('click', function(event) {
+        event.preventDefault();
+        showView('gestao-view');
+    });
+    
+    // Inicia mostrando a tela do cronômetro por padrão
+    showView('cronometro-view');
 });

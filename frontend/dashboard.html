@@ -13,43 +13,52 @@
             <nav class="sidebar-nav">
                 <h3>APONTAMENTOS</h3>
                 <ul>
-                    <li><a href="#">CRONÔMETRO</a></li>
-                    <li><a href="#">PLANILHA</a></li>
+                    <li><a href="#" id="nav-cronometro">CRONÔMETRO</a></li>
+                    <li><a href="#" id="nav-planilha">PLANILHA</a></li>
                 </ul>
                 <h3>RELATÓRIOS</h3>
                 <ul>
-                    <li><a href="#">DETALHADO</a></li>
-                    <li><a href="#">RESUMIDO</a></li>
+                    <li><a href="#" id="nav-relatorio-detalhado">DETALHADO</a></li>
+                    <li><a href="#" id="nav-relatorio-resumido">RESUMIDO</a></li>
                 </ul>
                 <h3>EQUIPE</h3>
                 <ul>
-                    <li><a href="#">DETALHADO</a></li>
-                    <li><a href="#">RESUMIDO</a></li>
-                    <li><a href="#">GESTÃO</a></li>
+                    <li><a href="#" id="nav-equipe-detalhado">DETALHADO</a></li>
+                    <li><a href="#" id="nav-equipe-resumido">RESUMIDO</a></li>
+                    <li><a href="#" id="nav-gestao">GESTÃO</a></li>
                 </ul>
             </nav>
             <button id="logout-btn">SAIR</button>
         </aside>
 
         <main class="main-content">
-            <div class="timer-bar">
-                <select id="pilar-select" required>
-                    <option value="">Selecione o Pilar</option>
-                    </select>
-                
-                <select id="projeto-select" required disabled>
-                    <option value="">Selecione o Projeto</option>
-                    </select>
-
-                <input type="text" id="observacao-input" placeholder="Adicione uma observação (iniciativa)" required>
-                
-                <div id="timer-display">00:00:00</div>
-                <button id="start-stop-btn">INICIAR</button>
+            
+            <div id="cronometro-view" class="view">
+                <div class="timer-bar">
+                    <select id="pilar-select" required><option value="">Selecione o Pilar</option></select>
+                    <select id="projeto-select" required disabled><option value="">Selecione o Projeto</option></select>
+                    <input type="text" id="observacao-input" placeholder="Adicione uma observação (iniciativa)" required>
+                    <div id="timer-display">00:00:00</div>
+                    <button id="start-stop-btn">INICIAR</button>
+                </div>
+                <div class="content-area">
+                    <h2>Meus Apontamentos (Em breve)</h2>
+                </div>
             </div>
 
-            <div class="content-area">
-                <h2>Meus Apontamentos (Em breve)</h2>
+            <div id="planilha-view" class="view" style="display: none;">
+                <h2>Página da Planilha (Em breve)</h2>
             </div>
+
+            <div id="relatorio-detalhado-view" class="view" style="display: none;">
+                <h2>Relatório Detalhado (Em breve)</h2>
+            </div>
+            
+            <div id="gestao-view" class="view" style="display: none;">
+                <h2>Página de Gestão de Equipe (Em breve)</h2>
+                <p>Aqui ficarão as ferramentas de gestão.</p>
+            </div>
+
         </main>
     </div>
 
