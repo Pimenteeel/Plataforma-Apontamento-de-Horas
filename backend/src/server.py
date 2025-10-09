@@ -94,6 +94,51 @@ def login_usuario():
         conn.close()
         return jsonify({'status': 'erro', 'mensagem': 'Email ou senha inválidos'}), 401
 
+# --- ROTA PARA BUSCAR OS PILARES ---
+@app.route("/pilares", methods=['GET'])
+def listar_pilares():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Não foi possível conectar ao banco de dados'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM Pilares ORDER BY NomePilar")
+        pilares = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'sucesso', 'pilares': pilares}), 200
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+    
+# --- ROTA PARA BUSCAR PROJETOS DE UM PILAR ESPECÍFICO ---
+@app.route("/projetos", methods=['GET'])
+def listar_projetos_por_pilar():
+    # Pega o 'pilar_id' que foi enviado como parâmetro na URL
+    # Ex: /projetos?pilar_id=4
+    pilar_id = request.args.get('pilar_id')
+
+    if not pilar_id:
+        return jsonify({'status': 'erro', 'mensagem': 'ID do pilar é obrigatório'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Não foi possível conectar ao banco de dados'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = "SELECT * FROM Projetos WHERE fk_ID_Pilar = %s ORDER BY NomeProjeto"
+        cursor.execute(query, (pilar_id,))
+        projetos = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'sucesso', 'projetos': projetos}), 200
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
