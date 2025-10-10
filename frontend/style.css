@@ -1,95 +1,109 @@
-/* Define um estilo base para toda a página */
+/* ==========================================================================
+   Estilos Gerais e Layout Principal
+   ========================================================================== */
+
+/* Define um estilo base para todas as páginas */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #333; /* Fundo cinza escuro */
-    color: white; /* Cor do texto principal */
-    display: flex; /* Habilita o layout flexível */
-    justify-content: center; /* Centraliza horizontalmente */
-    align-items: center; /* Centraliza verticalmente */
-    height: 100vh; /* Ocupa 100% da altura da tela */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #333;
+    color: white;
     margin: 0;
+    overflow-x: hidden; /* Evita a barra de rolagem horizontal */
 }
 
-/* O container principal do formulário */
+/* Container para páginas centralizadas como Login e Cadastro */
+.login-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Container principal dos formulários de login/cadastro */
 .login-container {
-    background-color: #444; /* Cinza um pouco mais claro */
+    background-color: #444;
     padding: 40px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    width: 350px;
+    width: 380px;
     text-align: center;
 }
 
 h1 {
     margin-bottom: 30px;
     font-size: 1.5em;
-    letter-spacing: 2px; /* Espaçamento entre letras */
+    letter-spacing: 2px;
 }
 
-/* Estilo dos campos de texto (input) */
-input, select {
+#mensagem {
+    margin-top: 20px;
+    font-weight: bold;
+    min-height: 20px; /* Garante um espaço mesmo sem mensagem */
+}
+
+
+/* ==========================================================================
+   Estilos de Formulários (Inputs, Selects, Botões)
+   ========================================================================== */
+
+/* Regra unificada para inputs e selects */
+input,
+select {
     width: 100%;
     padding: 15px;
     margin-bottom: 20px;
     border: none;
     border-radius: 5px;
-    background-color: #222; /* Fundo preto/cinza bem escuro */
+    background-color: #222;
     color: white;
     font-size: 1em;
-    box-sizing: border-box; /* Garante que o padding não aumente a largura total */
+    box-sizing: border-box;
 }
 
-/* Estilização específica para o dropdown */
+/* Estilização específica para o dropdown (seta personalizada) */
 select {
-    /* Remove a aparência padrão do sistema operacional */
-    -webkit-appearance: none; /* Para navegadores Chrome, Safari, Edge */
-    -moz-appearance: none;    /* Para Firefox */
-    appearance: none;         /* Padrão geral */
-
-    /* O TRUQUE: Adicionamos nossa própria seta como uma imagem de fundo */
-    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%22_width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
     background-repeat: no-repeat;
     background-position: right 15px top 50%;
     background-size: 10px auto;
 }
 
-/* Estilo do botão principal de Entrar */
+/* Estilo geral para botões */
 button {
     width: 100%;
     padding: 15px;
     border: none;
     border-radius: 5px;
-    background-color: #007bff; /* Azul */
+    background-color: #007bff;
     color: white;
     font-size: 1em;
     font-weight: bold;
-    cursor: pointer; /* Mostra a "mãozinha" ao passar o mouse */
-    transition: background-color 0.3s; /* Efeito suave na transição de cor */
+    cursor: pointer;
+    transition: background-color 0.3s;
 }
 
 button:hover {
-    background-color: #0056b3; /* Azul mais escuro ao passar o mouse */
+    background-color: #0056b3;
 }
 
-/* Container para os links inferiores */
+/* Container para os links inferiores (Esqueci Senha, Fazer Cadastro) */
 .links-container {
     margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
 }
 
 .links-container a {
     text-decoration: none;
     color: white;
-    background-color: #007bff; /* Azul, igual ao botão */
+    background-color: #007bff;
     padding: 10px 15px;
     border-radius: 5px;
     transition: background-color 0.3s;
-}
-
-.links-container {
-    margin-top: 20px;
-    display: flex;          /* <-- A MÁGICA ACONTECE AQUI */
-    justify-content: center;  /* <-- Centraliza os botões no espaço disponível */
-    gap: 10px;              /* <-- Cria um espaço elegante de 10px entre eles */
 }
 
 .links-container a:hover {
@@ -102,27 +116,24 @@ button:hover {
     color: #aaa;
 }
 
-#mensagem {
-    margin-top: 20px;
-    font-weight: bold;
-}
-
-/* Adicione este código ao final do seu style.css */
+/* ==========================================================================
+   Layout do Dashboard
+   ========================================================================== */
 
 .dashboard-container {
     display: flex;
     width: 100vw;
     height: 100vh;
-    background-color: #333;
 }
 
 .sidebar {
     width: 250px;
-    background-color: #f4f4f4; /* Cinza claro */
+    background-color: #f4f4f4;
     color: #333;
     padding: 20px;
     display: flex;
     flex-direction: column;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 .sidebar-header {
@@ -132,13 +143,13 @@ button:hover {
 }
 
 .sidebar-nav h3 {
-    font-size: 1.1em; /* <-- AUMENTEI O VALOR PARA DEIXAR MAIOR */
-    font-weight: bold; /* <-- ADICIONEI ESTA LINHA PARA DEIXAR EM NEGRITO */
+    font-size: 1.1em;
+    font-weight: bold;
     text-transform: uppercase;
-    color: #333; /* <-- MUDEI PARA UM CINZA MAIS ESCURO PARA DAR MAIS CONTRASTE */
+    color: #333;
     margin-top: 20px;
-    border-bottom: 1px solid #ddd; /* (Opcional) Adiciona uma linha sutil abaixo do título */
-    padding-bottom: 5px;             /* (Opcional) Um pequeno espaço abaixo do título */
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
 }
 
 .sidebar-nav ul {
@@ -151,6 +162,8 @@ button:hover {
     color: #333;
     display: block;
     padding: 10px 0;
+    border-radius: 5px;
+    padding-left: 10px;
     transition: background-color 0.2s;
 }
 
@@ -158,26 +171,29 @@ button:hover {
     background-color: #ddd;
 }
 
-/* Deixa o botão de SAIR no final da sidebar */
 .sidebar #logout-btn {
-    margin-top: auto;
-    background-color: #dc3545; /* Vermelho */
+    margin-top: auto; /* Empurra o botão de sair para o final */
+    background-color: #dc3545;
 }
 .sidebar #logout-btn:hover {
     background-color: #c82333;
 }
 
-
 .main-content {
-    flex-grow: 1; /* Ocupa o resto do espaço */
+    flex-grow: 1;
     padding: 20px;
     display: flex;
     flex-direction: column;
+    background-color: #333;
 }
+
+/* ==========================================================================
+   Barra do Timer e Itens
+   ========================================================================== */
 
 .timer-bar {
     display: flex;
-    align-items: baseline;
+    align-items: center; /* Alinha verticalmente pelo centro */
     gap: 15px;
     background-color: #444;
     padding: 15px;
@@ -185,26 +201,49 @@ button:hover {
     margin-bottom: 20px;
 }
 
-.timer-bar input, .timer-bar select {
+/* Regra para forçar a mesma altura nos itens da barra */
+.timer-bar > select,
+.timer-bar > input,
+.timer-bar > div,
+.timer-bar > button {
+    height: 48px; 
+    box-sizing: border-box;
+}
+
+.timer-bar select,
+.timer-bar input {
     flex-grow: 1; /* Faz os campos de texto e select crescerem */
+    margin-bottom: 0; /* Remove a margem inferior padrão dentro da barra */
 }
 
 #timer-display {
-    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
     font-weight: bold;
     color: white;
     background-color: #222;
-    padding: 15px 20px;
+    padding: 10px 20px;
     border-radius: 5px;
     min-width: 120px;
     text-align: center;
+    margin-left: auto; /* Empurra o timer e o botão para a direita */
 }
 
 #start-stop-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 120px;
+    flex-shrink: 0; /* Impede que o botão encolha */
+    padding: 10px;
 }
 
-/* --- Estilos para a Lista de Apontamentos --- */
+/* ==========================================================================
+   Lista de Apontamentos
+   ========================================================================== */
+
 .content-area h2 {
     border-bottom: 1px solid #555;
     padding-bottom: 10px;
@@ -212,14 +251,36 @@ button:hover {
     color: white;
 }
 
+.data-header {
+    display: inline-block;
+    background-color: #0056b3;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+
 .apontamento-item {
     display: flex;
     align-items: center;
-    background-color: #4f4f4f;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 10px;
+    background-color: #444;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 8px;
     gap: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease-in-out;
+}
+
+.apontamento-item:hover {
+    transform: scale(1.01);
+}
+
+.apontamento-item:nth-child(even) {
+    background-color: #4f4f4f; /* Efeito "zebra" */
 }
 
 .apontamento-item span {
@@ -227,8 +288,7 @@ button:hover {
 }
 
 .apontamento-descricao {
-    flex-grow: 1; /* Faz a descrição ocupar o máximo de espaço */
-    font-weight: bold;
+    flex-grow: 1;
     color: white;
 }
 
@@ -237,10 +297,15 @@ button:hover {
     padding: 5px 10px;
     border-radius: 10px;
     font-size: 0.9em;
+    white-space: nowrap;
 }
 
 .apontamento-duracao {
+    font-family: 'Courier New', Courier, monospace;
     font-weight: bold;
-    font-size: 1.1em;
+    font-size: 1.2em;
     color: white;
+    background-color: #333;
+    padding: 5px 10px;
+    border-radius: 5px;
 }

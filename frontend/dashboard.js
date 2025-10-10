@@ -78,8 +78,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(error => console.error('Erro ao buscar projetos:', error));
     }
 
+    // --- FUNÇÃO ATUALIZADA: CARREGAR E EXIBIR APONTAMENTOS AGRUPADOS POR DATA ---
     function carregarApontamentos() {
         if (!contentArea) return;
+
         fetch('http://127.0.0.1:5000/apontamentos', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
@@ -88,18 +90,38 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.status === 'sucesso') {
                 contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
+
                 if (data.apontamentos.length === 0) {
                     contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
                     return;
                 }
+
+                let dataAtual = ""; // Variável para controlar a data do grupo
+
                 data.apontamentos.forEach(ap => {
+                    // Pega a data do apontamento atual
+                    const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
+
+                    // Se a data do apontamento for diferente da data do último grupo...
+                    if (dataDoApontamento !== dataAtual) {
+                        dataAtual = dataDoApontamento; // Atualiza a data do grupo
+                        // E cria um novo cabeçalho de data na tela
+                        const headerDiv = document.createElement('h3');
+                        headerDiv.className = 'data-header';
+                        headerDiv.textContent = dataAtual;
+                        contentArea.appendChild(headerDiv);
+                    }
+
+                    // Cria o item do apontamento (agora com Pilar, Projeto e Descrição)
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'apontamento-item';
+
                     const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+
+                    // Template atualizado para mostrar as 3 informações
                     itemDiv.innerHTML = `
-                        <span class="apontamento-descricao">${ap.Descricao}</span>
-                        <span class="apontamento-projeto">${ap.NomeProjeto}</span>
+                        <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
                         <span>${inicio} - ${fim}</span>
                         <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
                     `;

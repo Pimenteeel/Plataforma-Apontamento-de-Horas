@@ -261,11 +261,14 @@ def listar_apontamentos(current_user_id):
                 ap.Data_Inicio,
                 ap.Data_Fim,
                 TIMEDIFF(ap.Data_Fim, ap.Data_Inicio) AS Duracao,
-                proj.NomeProjeto
+                proj.NomeProjeto,
+                pil.NomePilar
             FROM
                 Apontamentos ap
             JOIN
                 Projetos proj ON ap.fk_ID_Projeto = proj.ID_Projeto
+            JOIN
+                Pilares pil ON proj.fk_ID_Pilar = pil.ID_Pilar
             WHERE
                 ap.fk_ID_Usuario = %s
             ORDER BY
