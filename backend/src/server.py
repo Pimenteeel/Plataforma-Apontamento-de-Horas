@@ -275,24 +275,18 @@ def listar_apontamentos(current_user_id):
                 ap.Data_Inicio DESC
         """
         
-        # A passagem de parâmetro está correta com a tupla (vírgula no final)
         cursor.execute(query, (current_user_id,))
-        
         apontamentos = cursor.fetchall()
         
         cursor.close()
         conn.close()
         
-        # --- AJUSTE IMPORTANTE ---
-        # O Python não consegue converter objetos de data/hora/duração para JSON diretamente.
-        # Este código percorre os resultados e converte esses campos para texto (string).
         for apontamento in apontamentos:
             for key, value in apontamento.items():
                 if isinstance(value, (datetime.datetime, datetime.timedelta)):
                     apontamento[key] = str(value)
 
         return jsonify({'status': 'sucesso', 'apontamentos': apontamentos}), 200
-
     except Exception as e:
         cursor.close()
         conn.close()

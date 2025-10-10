@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // E cria um novo cabeçalho de data na tela
                         const headerDiv = document.createElement('h3');
                         headerDiv.className = 'data-header';
-                        headerDiv.textContent = dataAtual;
+                        headerDiv.textContent = `${dataAtual}`;
                         contentArea.appendChild(headerDiv);
                     }
 
