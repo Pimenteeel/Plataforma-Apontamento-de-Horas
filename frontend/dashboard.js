@@ -1,26 +1,45 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- LÓGICA DE PROTEÇÃO E LOGOUT ---
+    // --- 1. LÓGICA DE PROTEÇÃO E ELEMENTOS GERAIS ---
     const token = localStorage.getItem('token');
     if (!token) {
         alert("Você precisa estar logado para acessar esta página.");
         window.location.href = 'login.html';
-        return;
+        return; // Para a execução do script se não houver token
     }
 
+    // Captura de todos os elementos da página que usaremos
     const logoutButton = document.getElementById('logout-btn');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', function() {
-            localStorage.removeItem('token');
-            alert("Você saiu da sua conta.");
-            window.location.href = 'login.html';
-        });
-    }
-
-    // --- LÓGICA DO CRONÔMETRO (CARREGAR DADOS) ---
     const pilarSelect = document.getElementById('pilar-select');
     const projetoSelect = document.getElementById('projeto-select');
-    
+    const observacaoInput = document.getElementById('observacao-input');
+    const timerDisplay = document.getElementById('timer-display');
+    const startStopBtn = document.getElementById('start-stop-btn');
+    const contentArea = document.querySelector('.content-area'); // <-- Declarado uma única vez aqui
+
+    // --- 2. LÓGICA DE NAVEGAÇÃO ENTRE AS TELAS ---
+    const navCronometro = document.getElementById('nav-cronometro');
+    const navPlanilha = document.getElementById('nav-planilha');
+    const navRelatorioDetalhado = document.getElementById('nav-relatorio-detalhado');
+    const navGestao = document.getElementById('nav-gestao');
+    const views = document.querySelectorAll('.view');
+
+    function showView(viewId) {
+        views.forEach(view => {
+            view.style.display = 'none';
+        });
+        const viewToShow = document.getElementById(viewId);
+        if (viewToShow) {
+            viewToShow.style.display = 'block';
+        }
+    }
+
+    navCronometro.addEventListener('click', (e) => { e.preventDefault(); showView('cronometro-view'); });
+    navPlanilha.addEventListener('click', (e) => { e.preventDefault(); showView('planilha-view'); });
+    navRelatorioDetalhado.addEventListener('click', (e) => { e.preventDefault(); showView('relatorio-detalhado-view'); });
+    navGestao.addEventListener('click', (e) => { e.preventDefault(); showView('gestao-view'); });
+
+    // --- 3. FUNÇÕES DE CARREGAMENTO DE DADOS (APIs) ---
     function carregarPilares() {
         fetch('http://127.0.0.1:5000/pilares')
         .then(response => response.json())
@@ -34,8 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     pilarSelect.appendChild(option);
                 });
             }
-        })
-        .catch(error => console.error('Erro ao buscar pilares:', error));
+        }).catch(error => console.error('Erro ao buscar pilares:', error));
     }
 
     function carregarProjetos(pilarId) {
@@ -44,7 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
             projetoSelect.disabled = true;
             return;
         }
-
         fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`)
         .then(response => response.json())
         .then(data => {
@@ -58,56 +75,131 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 projetoSelect.disabled = false;
             }
-        })
-        .catch(error => console.error('Erro ao buscar projetos:', error));
+        }).catch(error => console.error('Erro ao buscar projetos:', error));
     }
 
-    pilarSelect.addEventListener('change', function() {
-        const pilarSelecionadoId = pilarSelect.value;
-        carregarProjetos(pilarSelecionadoId);
-    });
-
-    carregarPilares();
-
-    // --- LÓGICA DE NAVEGAÇÃO ENTRE AS TELAS ---
-    const navCronometro = document.getElementById('nav-cronometro');
-    const navPlanilha = document.getElementById('nav-planilha');
-    const navRelatorioDetalhado = document.getElementById('nav-relatorio-detalhado');
-    const navGestao = document.getElementById('nav-gestao');
-    
-    const views = document.querySelectorAll('.view');
-
-    function showView(viewId) {
-        views.forEach(view => {
-            view.style.display = 'none';
+    function carregarApontamentos() {
+        if (!contentArea) return;
+        fetch('http://127.0.0.1:5000/apontamentos', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
+                if (data.apontamentos.length === 0) {
+                    contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
+                    return;
+                }
+                data.apontamentos.forEach(ap => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'apontamento-item';
+                    const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+                    itemDiv.innerHTML = `
+                        <span class="apontamento-descricao">${ap.Descricao}</span>
+                        <span class="apontamento-projeto">${ap.NomeProjeto}</span>
+                        <span>${inicio} - ${fim}</span>
+                        <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
+                    `;
+                    contentArea.appendChild(itemDiv);
+                });
+            } else {
+                contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
+            }
+        }).catch(error => {
+            console.error('Erro ao buscar apontamentos:', error);
+            contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
         });
-        
-        const viewToShow = document.getElementById(viewId);
-        if (viewToShow) {
-            viewToShow.style.display = 'block';
+    }
+
+    // --- 4. LÓGICA DO CRONÔMETRO ---
+    let timerInterval = null;
+    let segundosPassados = 0;
+    let apontamentoAtivoId = null;
+
+    function formatarTempo(segundos) {
+        const h = Math.floor(segundos / 3600).toString().padStart(2, '0');
+        const m = Math.floor((segundos % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(segundos % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    async function iniciarCronometro() {
+        if (!pilarSelect.value || !projetoSelect.value || !observacaoInput.value) {
+            alert("Por favor, selecione Pilar, Projeto e preencha a observação.");
+            return;
+        }
+        const dados = {
+            projeto_id: parseInt(projetoSelect.value),
+            descricao: observacaoInput.value
+        };
+        const response = await fetch('http://127.0.0.1:5000/apontamentos/iniciar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(dados)
+        });
+        const result = await response.json();
+        if (result.status === 'sucesso') {
+            apontamentoAtivoId = result.apontamento_id;
+            startStopBtn.textContent = 'PARAR';
+            startStopBtn.style.backgroundColor = '#dc3545';
+            [pilarSelect, projetoSelect, observacaoInput].forEach(el => el.disabled = true);
+            segundosPassados = 0;
+            timerInterval = setInterval(() => {
+                segundosPassados++;
+                timerDisplay.textContent = formatarTempo(segundosPassados);
+            }, 1000);
+        } else {
+            alert(`Erro: ${result.mensagem}`);
         }
     }
 
-    navCronometro.addEventListener('click', function(event) {
-        event.preventDefault();
-        showView('cronometro-view');
+    async function pararCronometro() {
+        const response = await fetch('http://127.0.0.1:5000/apontamentos/parar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ apontamento_id: apontamentoAtivoId })
+        });
+        const result = await response.json();
+        if (result.status === 'sucesso') {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            apontamentoAtivoId = null;
+            startStopBtn.textContent = 'INICIAR';
+            startStopBtn.style.backgroundColor = '#007bff';
+            timerDisplay.textContent = '00:00:00';
+            [pilarSelect, projetoSelect, observacaoInput].forEach(el => el.disabled = false);
+            observacaoInput.value = '';
+            alert("Apontamento finalizado com sucesso!");
+            carregarApontamentos(); // Atualiza a lista!
+        } else {
+            alert(`Erro: ${result.mensagem}`);
+        }
+    }
+
+    // --- 5. EVENT LISTENERS PRINCIPAIS ---
+    logoutButton.addEventListener('click', function() {
+        localStorage.removeItem('token');
+        alert("Você saiu da sua conta.");
+        window.location.href = 'login.html';
     });
 
-    navPlanilha.addEventListener('click', function(event) {
-        event.preventDefault();
-        showView('planilha-view');
+    pilarSelect.addEventListener('change', function() {
+        carregarProjetos(pilarSelect.value);
     });
 
-    navRelatorioDetalhado.addEventListener('click', function(event) {
-        event.preventDefault();
-        showView('relatorio-detalhado-view');
+    startStopBtn.addEventListener('click', () => {
+        if (timerInterval) {
+            pararCronometro();
+        } else {
+            iniciarCronometro();
+        }
     });
 
-    navGestao.addEventListener('click', function(event) {
-        event.preventDefault();
-        showView('gestao-view');
-    });
-    
-    // Inicia mostrando a tela do cronômetro por padrão
+    // --- 6. INICIALIZAÇÃO DA PÁGINA ---
     showView('cronometro-view');
+    carregarPilares();
+    carregarApontamentos();
 });

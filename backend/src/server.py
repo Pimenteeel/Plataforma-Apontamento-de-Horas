@@ -1,6 +1,7 @@
 import os
 import jwt
 import datetime
+from functools import wraps
 from flask import Flask, request, jsonify
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
@@ -139,6 +140,160 @@ def listar_projetos_por_pilar():
         cursor.close()
         conn.close()
         return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+
+# Adicione estes imports no topo do arquivo para nos ajudar com o token
+import jwt
+from functools import wraps
+
+# --- DECORATOR PARA PROTEGER ROTAS ---
+# Esta é uma função especial (um "decorator") que usaremos para proteger rotas.
+# Ela verifica se o token JWT é válido antes de permitir que a rota seja executada.
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            # O token vem no formato "Bearer [token]"
+            token = request.headers['Authorization'].split(" ")[1]
+        
+        if not token:
+            return jsonify({'status': 'erro', 'mensagem': 'Token é obrigatório'}), 401
+        
+        try:
+            # Decodifica o token para pegar o user_id
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user_id = data['user_id']
+        except Exception as e:
+            return jsonify({'status': 'erro', 'mensagem': 'Token é inválido ou expirou', 'error': str(e)}), 401
+        
+        # Passa o ID do usuário logado para a função da rota
+        return f(current_user_id, *args, **kwargs)
+    return decorated
+
+
+# --- ROTA PARA INICIAR UM APONTAMENTO ---
+@app.route("/apontamentos/iniciar", methods=['POST'])
+@token_required # <-- Aplicamos nosso decorator de segurança
+def iniciar_apontamento(current_user_id):
+    data = request.get_json()
+    projeto_id = data.get('projeto_id')
+    descricao = data.get('descricao')
+
+    if not projeto_id or not descricao:
+        return jsonify({'status': 'erro', 'mensagem': 'Projeto e descrição são obrigatórios'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Insere um novo apontamento com a data e hora atuais
+        query = "INSERT INTO Apontamentos (fk_ID_Usuario, fk_ID_Projeto, Descricao, Data_Inicio) VALUES (%s, %s, %s, NOW())"
+        cursor.execute(query, (current_user_id, projeto_id, descricao))
+        conn.commit()
+        
+        # Pega o ID do apontamento que acabamos de criar
+        novo_apontamento_id = cursor.lastrowid
+        
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'sucesso', 'mensagem': 'Apontamento iniciado', 'apontamento_id': novo_apontamento_id}), 201
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+
+
+# --- ROTA PARA PARAR UM APONTAMENTO ---
+@app.route("/apontamentos/parar", methods=['POST'])
+@token_required # <-- Aplicamos nosso decorator de segurança
+def parar_apontamento(current_user_id):
+    data = request.get_json()
+    apontamento_id = data.get('apontamento_id')
+
+    if not apontamento_id:
+        return jsonify({'status': 'erro', 'mensagem': 'ID do apontamento é obrigatório'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor()
+    try:
+        # Atualiza o apontamento, preenchendo o campo Data_Fim
+        query = "UPDATE Apontamentos SET Data_Fim = NOW() WHERE ID_Apontamento = %s AND fk_ID_Usuario = %s AND Data_Fim IS NULL"
+        cursor.execute(query, (apontamento_id, current_user_id))
+        conn.commit()
+        
+        # cursor.rowcount nos diz quantas linhas foram afetadas.
+        # Se for 0, significa que o apontamento não foi encontrado ou já estava parado.
+        if cursor.rowcount == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({'status': 'erro', 'mensagem': 'Apontamento não encontrado ou já finalizado'}), 404
+        
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'sucesso', 'mensagem': 'Apontamento finalizado'}), 200
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+
+# --- ROTA PARA LISTAR OS APONTAMENTOS DO USUÁRIO LOGADO (VERSÃO CORRIGIDA) ---
+# --- ROTA PARA LISTAR OS APONTAMENTOS DO USUÁRIO LOGADO (VERSÃO DEFINITIVA) ---
+@app.route("/apontamentos", methods=['GET'])
+@token_required
+def listar_apontamentos(current_user_id):
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Query mais limpa: removemos o TIME_FORMAT problemático.
+        # Pedimos a duração crua com TIMEDIFF.
+        query = """
+            SELECT
+                ap.ID_Apontamento,
+                ap.Descricao,
+                ap.Data_Inicio,
+                ap.Data_Fim,
+                TIMEDIFF(ap.Data_Fim, ap.Data_Inicio) AS Duracao,
+                proj.NomeProjeto
+            FROM
+                Apontamentos ap
+            JOIN
+                Projetos proj ON ap.fk_ID_Projeto = proj.ID_Projeto
+            WHERE
+                ap.fk_ID_Usuario = %s
+            ORDER BY
+                ap.Data_Inicio DESC
+        """
+        
+        # A passagem de parâmetro está correta com a tupla (vírgula no final)
+        cursor.execute(query, (current_user_id,))
+        
+        apontamentos = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        # --- AJUSTE IMPORTANTE ---
+        # O Python não consegue converter objetos de data/hora/duração para JSON diretamente.
+        # Este código percorre os resultados e converte esses campos para texto (string).
+        for apontamento in apontamentos:
+            for key, value in apontamento.items():
+                if isinstance(value, (datetime.datetime, datetime.timedelta)):
+                    apontamento[key] = str(value)
+
+        return jsonify({'status': 'sucesso', 'apontamentos': apontamentos}), 200
+
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': f"Erro ao executar a query: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

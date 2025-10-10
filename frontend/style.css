@@ -177,7 +177,7 @@ button:hover {
 
 .timer-bar {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 15px;
     background-color: #444;
     padding: 15px;
@@ -190,11 +190,11 @@ button:hover {
 }
 
 #timer-display {
-    font-size: 1.5em;
+    font-size: 1.3em;
     font-weight: bold;
     color: white;
     background-color: #222;
-    padding: 10px 20px;
+    padding: 15px 20px;
     border-radius: 5px;
     min-width: 120px;
     text-align: center;
@@ -202,4 +202,45 @@ button:hover {
 
 #start-stop-btn {
     width: 120px;
+}
+
+/* --- Estilos para a Lista de Apontamentos --- */
+.content-area h2 {
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.apontamento-item {
+    display: flex;
+    align-items: center;
+    background-color: #4f4f4f;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    gap: 15px;
+}
+
+.apontamento-item span {
+    color: #ddd;
+}
+
+.apontamento-descricao {
+    flex-grow: 1; /* Faz a descrição ocupar o máximo de espaço */
+    font-weight: bold;
+    color: white;
+}
+
+.apontamento-projeto {
+    background-color: #666;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 0.9em;
+}
+
+.apontamento-duracao {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: white;
 }
