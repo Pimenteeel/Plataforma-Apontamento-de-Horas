@@ -115,17 +115,26 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
                         <span>${inicio} - ${fim}</span>
                         <span class="apontamento-duracao" data-id="${ap.ID_Apontamento}">${ap.Duracao || 'Rodando...'}</span>
+                        <button class="apontamento-delete-btn" data-id="${ap.ID_Apontamento}"><i class="fas fa-trash-alt"></i></button>
                     `;
                     contentArea.appendChild(itemDiv);
                 });
 
                 // MUDANÇA: Depois de criar os itens, adicionamos o evento de clique a cada um
                 document.querySelectorAll('.apontamento-duracao').forEach(span => {
-                    if (span.textContent !== 'Rodando...') { // Só permite editar apontamentos finalizados
-                        span.addEventListener('click', function() {
-                            tornarEditavel(this);
-                        });
+                    if (span.textContent !== 'Rodando...') {
+                        span.addEventListener('click', function() { tornarEditavel(this); });
                     }
+                });
+
+                document.querySelectorAll('.apontamento-delete-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const apontamentoId = this.dataset.id;
+                        // Usa o pop-up de confirmação do navegador
+                        if (confirm("Tem certeza que deseja excluir este apontamento?")) {
+                            excluirApontamento(apontamentoId);
+                        }
+                    });
                 });
 
             } else {
@@ -135,6 +144,24 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Erro ao buscar apontamentos:', error);
             contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
         });
+    }
+
+    async function excluirApontamento(apontamentoId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/apontamentos/${apontamentoId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (result.status !== 'sucesso') {
+                alert(`Erro: ${result.mensagem}`);
+            }
+        } catch (error) {
+            alert("Erro de conexão ao excluir.");
+        } finally {
+            // Sempre recarrega a lista para mostrar o resultado da exclusão
+            carregarApontamentos(); 
+        }
     }
 
     function tornarEditavel(spanElement) {

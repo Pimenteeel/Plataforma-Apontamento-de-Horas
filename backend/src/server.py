@@ -362,5 +362,36 @@ def get_apontamento_ativo(current_user_id):
         conn.close()
         return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
 
+# --- ROTA PARA EXCLUIR UM APONTAMENTO ---
+@app.route("/apontamentos/<int:apontamento_id>", methods=['DELETE'])
+@token_required
+def excluir_apontamento(current_user_id, apontamento_id):
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor()
+    try:
+        # A query deleta o apontamento, mas a cláusula WHERE garante duas coisas:
+        # 1. Que o ID do apontamento corresponde ao que foi pedido.
+        # 2. Que o apontamento pertence ao usuário que está logado (current_user_id).
+        # Isso impede que um usuário apague os apontamentos de outro.
+        query = "DELETE FROM Apontamentos WHERE ID_Apontamento = %s AND fk_ID_Usuario = %s"
+        cursor.execute(query, (apontamento_id, current_user_id))
+        conn.commit()
+        
+        # cursor.rowcount nos diz quantas linhas foram afetadas.
+        # Se for 0, significa que o apontamento não foi encontrado para aquele usuário.
+        if cursor.rowcount == 0:
+            return jsonify({'status': 'erro', 'mensagem': 'Apontamento não encontrado ou não pertence a você'}), 404
+        
+        return jsonify({'status': 'sucesso', 'mensagem': 'Apontamento excluído com sucesso'}), 200
+    except Exception as e:
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
 if __name__ == "__main__":
     app.run(debug=True)
