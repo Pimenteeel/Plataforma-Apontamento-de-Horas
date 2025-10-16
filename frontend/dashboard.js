@@ -325,8 +325,66 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function carregarPlanilha() {
+        const planilhaContainer = document.getElementById('planilha-container');
+        if (!planilhaContainer) return;
+
+        fetch('http://127.0.0.1:5000/planilha', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                planilhaContainer.innerHTML = ''; // Limpa a mensagem "Carregando..."
+                
+                const table = document.createElement('table');
+                table.className = 'planilha-table'; // Classe para estilização
+
+                // --- Cria o Cabeçalho (Dias da Semana) ---
+                const thead = document.createElement('thead');
+                let headerRow = '<tr><th>Atividade</th>';
+                const diasDaSemana = [];
+                for (let i = 0; i < 7; i++) {
+                    const dia = new Date(data.inicio_semana);
+                    dia.setDate(dia.getDate() + i);
+                    const diaFormatado = dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                    headerRow += `<th>${diaFormatado}</th>`;
+                    diasDaSemana.push(dia.toISOString().split('T')[0]); // Guarda 'AAAA-MM-DD'
+                }
+                headerRow += '</tr>';
+                thead.innerHTML = headerRow;
+                table.appendChild(thead);
+
+                // --- Cria o Corpo da Tabela (Tarefas e Horas) ---
+                const tbody = document.createElement('tbody');
+                for (const tarefa in data.planilha) {
+                    let bodyRow = `<tr><td>${tarefa}</td>`;
+                    diasDaSemana.forEach(diaKey => {
+                        const horas = data.planilha[tarefa][diaKey] || '-'; // Pega as horas ou usa '-' se não houver
+                        bodyRow += `<td>${horas}</td>`;
+                    });
+                    bodyRow += '</tr>';
+                    tbody.innerHTML += bodyRow;
+                }
+                table.appendChild(tbody);
+
+                planilhaContainer.appendChild(table);
+            } else {
+                planilhaContainer.textContent = `Erro: ${data.mensagem}`;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar planilha:', error);
+            planilhaContainer.textContent = 'Erro de conexão ao carregar planilha.';
+        });
+    }
+
     navCronometro.addEventListener('click', (e) => { e.preventDefault(); showView('cronometro-view'); });
-    navPlanilha.addEventListener('click', (e) => { e.preventDefault(); showView('planilha-view'); });
+    navPlanilha.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        showView('planilha-view'); 
+        carregarPlanilha();
+    });
     navRelatorioDetalhado.addEventListener('click', (e) => { e.preventDefault(); showView('relatorio-detalhado-view'); });
     navGestao.addEventListener('click', (e) => { e.preventDefault(); showView('gestao-view'); });
 

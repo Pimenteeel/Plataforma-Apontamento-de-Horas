@@ -340,3 +340,71 @@ button:hover {
 .apontamento-delete-btn:hover {
     background-color: #c82333; /* Vermelho mais escuro */
 }
+
+/* ==========================================================================
+   Estilos da Planilha Semanal
+   ========================================================================== */
+
+/* O container que envolve a tabela */
+#planilha-container {
+    background-color: #444; /* Mesmo fundo da timer-bar */
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+/* A tabela em si */
+.planilha-table {
+    width: 100%;
+    border-collapse: collapse; /* Remove o espaçamento entre as células */
+    font-size: 0.9em;
+}
+
+/* Estilo para todas as células (cabeçalho e corpo) */
+.planilha-table th,
+.planilha-table td {
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #555; /* Linha sutil separando as linhas */
+}
+
+/* Estilo específico para o cabeçalho (SEG, TER, QUA...) */
+.planilha-table thead th {
+    background-color: #4f4f4f; /* Tom de cinza um pouco mais claro */
+    color: #eee;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* A primeira célula do cabeçalho ("Atividade") */
+.planilha-table th:first-child {
+    text-align: left;
+    border-top-left-radius: 5px; /* Arredonda o canto superior esquerdo */
+}
+
+.planilha-table th:last-child {
+    border-top-right-radius: 5px; /* Arredonda o canto superior direito */
+}
+
+/* A primeira célula de cada linha do corpo (o nome da tarefa) */
+.planilha-table td:first-child {
+    text-align: left;
+    font-weight: bold;
+    color: white;
+}
+
+/* Efeito "Zebra": cor de fundo alternada para as linhas do corpo */
+.planilha-table tbody tr:nth-child(even) {
+    background-color: #4a4a4a;
+}
+
+/* Efeito de Hover: destaca a linha ao passar o mouse */
+.planilha-table tbody tr:hover {
+    background-color: #5a5a5a;
+}
+
+/* Estilo para as células que não têm valor (com o traço "-") */
+.planilha-table td:not(:first-child) {
+    font-family: 'Courier New', Courier, monospace;
+    color: #ccc;
+}

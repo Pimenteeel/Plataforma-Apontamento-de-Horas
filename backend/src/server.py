@@ -393,5 +393,79 @@ def excluir_apontamento(current_user_id, apontamento_id):
             cursor.close()
             conn.close()
 
+# --- ROTA PARA BUSCAR DADOS PARA A PLANILHA SEMANAL ---
+@app.route("/planilha", methods=['GET'])
+@token_required
+def get_dados_planilha(current_user_id):
+    # Pega uma data de referência da URL (ex: /planilha?data=2025-10-16)
+    # Se nenhuma data for enviada, usa a data de hoje.
+    data_ref_str = request.args.get('data', datetime.date.today().isoformat())
+    data_ref = datetime.datetime.fromisoformat(data_ref_str).date()
+
+    # Calcula o início (Segunda) e o fim (Domingo) da semana
+    start_of_week = data_ref - datetime.timedelta(days=data_ref.weekday())
+    end_of_week = start_of_week + datetime.timedelta(days=6)
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Query que agrupa os dados e soma as durações
+        query = """
+            SELECT
+                p.NomePilar,
+                pr.NomeProjeto,
+                a.Descricao,
+                DATE(a.Data_Inicio) AS Dia,
+                SUM(TIME_TO_SEC(TIMEDIFF(a.Data_Fim, a.Data_Inicio))) AS Total_Segundos
+            FROM Apontamentos a
+            JOIN Projetos pr ON a.fk_ID_Projeto = pr.ID_Projeto
+            JOIN Pilares p ON pr.fk_ID_Pilar = p.ID_Pilar
+            WHERE
+                a.fk_ID_Usuario = %s AND
+                a.Data_Inicio BETWEEN %s AND %s AND
+                a.Data_Fim IS NOT NULL
+            GROUP BY
+                p.NomePilar, pr.NomeProjeto, a.Descricao, DATE(a.Data_Inicio)
+            ORDER BY
+                Dia;
+        """
+        # Adicionamos +1 dia ao end_of_week porque o BETWEEN em DATETIME é inclusivo
+        cursor.execute(query, (current_user_id, start_of_week, end_of_week + datetime.timedelta(days=1)))
+        
+        resultados = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # O Python agora vai reestruturar os dados para o frontend
+        planilha = {}
+        for res in resultados:
+            tarefa_key = f"{res['NomePilar']} | {res['NomeProjeto']} | {res['Descricao']}"
+            if tarefa_key not in planilha:
+                planilha[tarefa_key] = {}
+            
+            dia_str = res['Dia'].isoformat()
+            
+            # Formata o total de segundos para HH:MM:SS
+            total_seconds = int(res['Total_Segundos'])
+            h, rem = divmod(total_seconds, 3600)
+            m, s = divmod(rem, 60)
+            planilha[tarefa_key][dia_str] = f"{int(h):02}:{int(m):02}:{int(s):02}"
+
+        return jsonify({
+            'status': 'sucesso', 
+            'planilha': planilha,
+            'inicio_semana': start_of_week.isoformat(),
+            'fim_semana': end_of_week.isoformat()
+        }), 200
+
+    except Exception as e:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
