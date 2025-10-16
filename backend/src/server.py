@@ -473,6 +473,7 @@ def salvar_apontamento_planilha(current_user_id):
     projeto_id = data.get('projeto_id')
     data_apontamento_str = data.get('data') # Espera uma data no formato 'AAAA-MM-DD'
     duracao_segundos = data.get('duracao_segundos')
+    descricao = data.get('descricao', 'Entrada via Planilha')
 
     if not all([projeto_id, data_apontamento_str, duracao_segundos is not None]):
         return jsonify({'status': 'erro', 'mensagem': 'Dados incompletos'}), 400
@@ -506,7 +507,7 @@ def salvar_apontamento_planilha(current_user_id):
                 INSERT INTO Apontamentos (fk_ID_Usuario, fk_ID_Projeto, Descricao, Data_Inicio, Data_Fim)
                 VALUES (%s, %s, %s, %s, %s)
             """
-            cursor.execute(ins_query, (current_user_id, projeto_id, 'Entrada via Planilha', nova_data_inicio, nova_data_fim))
+            cursor.execute(ins_query, (current_user_id, projeto_id, descricao, nova_data_inicio, nova_data_fim))
 
         conn.commit()
         return jsonify({'status': 'sucesso', 'mensagem': 'Planilha atualizada'}), 200

@@ -358,14 +358,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `<td>${tarefaKey}</td>`;
 
+                    // Extrai a descrição original da chave da tarefa
+                    const descricaoOriginal = tarefaKey.split(' | ')[2].trim();
+
                     diasDaSemana.forEach(diaKey => {
                         const horas = tarefaInfo.dias[diaKey] || '-';
                         const td = document.createElement('td');
                         td.textContent = horas;
                         
-                        // A MÁGICA: Guardamos o ID do projeto e a data na própria célula
+                        // Guardamos todas as informações necessárias na célula
                         td.dataset.projetoId = tarefaInfo.projetoId;
                         td.dataset.date = diaKey;
+                        td.dataset.descricao = descricaoOriginal; // <-- A MÁGICA ESTÁ AQUI
                         
                         td.addEventListener('click', () => tornarCelulaEditavel(td));
                         tr.appendChild(td);
@@ -413,15 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function salvarAlteracaoPlanilha(tdElement, novoValor) {
-        // Pega as informações que guardamos na célula
         const projetoId = tdElement.dataset.projetoId;
         const data = tdElement.dataset.date;
+        const descricao = tdElement.dataset.descricao; // <-- Pegamos a descrição guardada
 
         let duracaoSegundos = 0;
         const partes = novoValor.trim().split(':');
-        
-        // Converte "HH:MM" para segundos
-        if (partes.length === 2 && novoValor.trim() !== '') {
+        if (partes.length >= 1 && partes.length <= 2) {
             const horas = parseInt(partes[0]) || 0;
             const minutos = parseInt(partes[1]) || 0;
             duracaoSegundos = (horas * 3600) + (minutos * 60);
@@ -434,7 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     projeto_id: projetoId,
                     data: data,
-                    duracao_segundos: duracaoSegundos
+                    duracao_segundos: duracaoSegundos,
+                    descricao: descricao // <-- Enviamos a descrição para o backend
                 })
             });
             const result = await response.json();
@@ -444,8 +447,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(error) {
             alert("Erro de conexão ao salvar.");
         } finally {
-            // Sempre recarrega a planilha para mostrar o dado atualizado
-            carregarPlanilha(); 
+            carregarPlanilha();
         }
     }
 
