@@ -80,60 +80,93 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- FUNÇÃO ATUALIZADA: CARREGAR E EXIBIR APONTAMENTOS AGRUPADOS POR DATA ---
     function carregarApontamentos() {
-        if (!contentArea) return;
+            if (!contentArea) return;
 
-        fetch('http://127.0.0.1:5000/apontamentos', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'sucesso') {
-                contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
+            fetch('http://127.0.0.1:5000/apontamentos', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'sucesso') {
+                    contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
 
-                if (data.apontamentos.length === 0) {
-                    contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
-                    return;
-                }
-
-                let dataAtual = ""; // Variável para controlar a data do grupo
-
-                data.apontamentos.forEach(ap => {
-                    // Pega a data do apontamento atual
-                    const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
-
-                    // Se a data do apontamento for diferente da data do último grupo...
-                    if (dataDoApontamento !== dataAtual) {
-                        dataAtual = dataDoApontamento; // Atualiza a data do grupo
-                        // E cria um novo cabeçalho de data na tela
-                        const headerDiv = document.createElement('h3');
-                        headerDiv.className = 'data-header';
-                        headerDiv.textContent = `${dataAtual}`;
-                        contentArea.appendChild(headerDiv);
+                    if (data.apontamentos.length === 0) {
+                        contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
+                        return;
                     }
 
-                    // Cria o item do apontamento (agora com Pilar, Projeto e Descrição)
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'apontamento-item';
+                    let dataAtual = ""; // Variável para controlar a data do grupo
 
-                    const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                    const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+                    data.apontamentos.forEach(ap => {
+                        const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
 
-                    // Template atualizado para mostrar as 3 informações
-                    itemDiv.innerHTML = `
-                        <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
-                        <span>${inicio} - ${fim}</span>
-                        <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
-                    `;
-                    contentArea.appendChild(itemDiv);
-                });
-            } else {
-                contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
+                        if (dataDoApontamento !== dataAtual) {
+                            dataAtual = dataDoApontamento; // Atualiza a data do grupo
+                            // E cria um novo cabeçalho de data na tela
+                            const headerDiv = document.createElement('h3');
+                            headerDiv.className = 'data-header';
+                            headerDiv.textContent = `${dataAtual}`;
+                            contentArea.appendChild(headerDiv);
+                        }
+
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'apontamento-item';
+
+                        const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                        const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+
+                        // Template atualizado para mostrar as 3 informações
+                        itemDiv.innerHTML = `
+                            <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
+                            <span>${inicio} - ${fim}</span>
+                            <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
+                        `;
+                        contentArea.appendChild(itemDiv);
+                    });
+                } else {
+                    contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
+                }
+            }).catch(error => {
+                console.error('Erro ao buscar apontamentos:', error);
+                contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
+            });
+        }
+
+        async function verificarApontamentoAtivo() {
+        try {
+            const response = await fetch('http://127.0.0.1:5000/apontamentos/ativo', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            if (data.status === 'sucesso' && data.apontamento) {
+                const ap = data.apontamento;
+                apontamentoAtivoId = ap.ID_Apontamento; // Guarda o ID do apontamento que já está rodando
+
+                // Calcula quantos segundos já se passaram desde que o timer foi iniciado
+                const dataInicio = new Date(ap.Data_Inicio);
+                const agora = new Date();
+                segundosPassados = Math.floor((agora - dataInicio) / 1000);
+
+                // "Reconstrói" a interface para o estado de "rodando"
+                startStopBtn.textContent = 'PARAR';
+                startStopBtn.style.backgroundColor = '#dc3545'; // Vermelho
+                [pilarSelect, projetoSelect, observacaoInput].forEach(el => el.disabled = true);
+                
+                // Preenche os campos com os dados do apontamento ativo (vamos precisar buscar os nomes)
+                observacaoInput.value = ap.Descricao;
+                
+                // Inicia o timer visual a partir do tempo já decorrido
+                timerInterval = setInterval(() => {
+                    segundosPassados++;
+                    timerDisplay.textContent = formatarTempo(segundosPassados);
+                }, 1000);
             }
-        }).catch(error => {
-            console.error('Erro ao buscar apontamentos:', error);
-            contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
-        });
+        } catch (error) {
+            console.error("Erro ao verificar apontamento ativo:", error);
+        }
     }
 
     // --- 4. LÓGICA DO CRONÔMETRO ---
@@ -224,4 +257,5 @@ document.addEventListener('DOMContentLoaded', function() {
     showView('cronometro-view');
     carregarPilares();
     carregarApontamentos();
+    verificarApontamentoAtivo();
 });

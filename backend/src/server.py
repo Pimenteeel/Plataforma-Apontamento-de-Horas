@@ -292,5 +292,35 @@ def listar_apontamentos(current_user_id):
         conn.close()
         return jsonify({'status': 'erro', 'mensagem': f"Erro ao executar a query: {str(e)}"}), 500
 
+# --- ROTA PARA VERIFICAR SE HÁ UM APONTAMENTO ATIVO ---
+@app.route("/apontamentos/ativo", methods=['GET'])
+@token_required
+def get_apontamento_ativo(current_user_id):
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Busca por um apontamento do usuário que ainda não foi finalizado (Data_Fim IS NULL)
+        query = "SELECT * FROM Apontamentos WHERE fk_ID_Usuario = %s AND Data_Fim IS NULL ORDER BY Data_Inicio DESC LIMIT 1"
+        cursor.execute(query, (current_user_id,))
+        apontamento_ativo = cursor.fetchone() # fetchone() pega apenas um resultado
+        
+        cursor.close()
+        conn.close()
+        
+        if apontamento_ativo:
+            # Converte a data para string para poder ser enviada como JSON
+            apontamento_ativo['Data_Inicio'] = str(apontamento_ativo['Data_Inicio'])
+            return jsonify({'status': 'sucesso', 'apontamento': apontamento_ativo}), 200
+        else:
+            return jsonify({'status': 'sucesso', 'apontamento': None}), 200 # Retorna sucesso, mas com apontamento nulo
+
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
