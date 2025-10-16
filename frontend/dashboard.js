@@ -1,11 +1,12 @@
+// VERSÃO COMPLETA E CORRIGIDA DO DASHBOARD.JS
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- 1. LÓGICA DE PROTEÇÃO E ELEMENTOS GERAIS ---
+    // --- 1. CONFIGURAÇÃO INICIAL E PROTEÇÃO ---
     const token = localStorage.getItem('token');
     if (!token) {
         alert("Você precisa estar logado para acessar esta página.");
         window.location.href = 'login.html';
-        return; // Para a execução do script se não houver token
+        return; 
     }
 
     // Captura de todos os elementos da página que usaremos
@@ -15,33 +16,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const observacaoInput = document.getElementById('observacao-input');
     const timerDisplay = document.getElementById('timer-display');
     const startStopBtn = document.getElementById('start-stop-btn');
-    const contentArea = document.querySelector('.content-area'); // <-- Declarado uma única vez aqui
-
-    // --- 2. LÓGICA DE NAVEGAÇÃO ENTRE AS TELAS ---
+    const contentArea = document.querySelector('.content-area');
     const navCronometro = document.getElementById('nav-cronometro');
     const navPlanilha = document.getElementById('nav-planilha');
     const navRelatorioDetalhado = document.getElementById('nav-relatorio-detalhado');
     const navGestao = document.getElementById('nav-gestao');
     const views = document.querySelectorAll('.view');
 
-    function showView(viewId) {
-        views.forEach(view => {
-            view.style.display = 'none';
-        });
-        const viewToShow = document.getElementById(viewId);
-        if (viewToShow) {
-            viewToShow.style.display = 'block';
-        }
-    }
+    // Variáveis de estado do cronômetro
+    let timerInterval = null;
+    let segundosPassados = 0;
+    let apontamentoAtivoId = null;
 
-    navCronometro.addEventListener('click', (e) => { e.preventDefault(); showView('cronometro-view'); });
-    navPlanilha.addEventListener('click', (e) => { e.preventDefault(); showView('planilha-view'); });
-    navRelatorioDetalhado.addEventListener('click', (e) => { e.preventDefault(); showView('relatorio-detalhado-view'); });
-    navGestao.addEventListener('click', (e) => { e.preventDefault(); showView('gestao-view'); });
+    // --- 2. LÓGICA DE NAVEGAÇÃO ENTRE TELAS ---
+    function showView(viewId) {
+        views.forEach(view => view.style.display = 'none');
+        const viewToShow = document.getElementById(viewId);
+        if (viewToShow) viewToShow.style.display = 'block';
+    }
 
     // --- 3. FUNÇÕES DE CARREGAMENTO DE DADOS (APIs) ---
     function carregarPilares() {
-        fetch('http://127.0.0.1:5000/pilares')
+        fetch('http://127.0.0.1:5000/pilares', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'sucesso') {
@@ -62,7 +60,9 @@ document.addEventListener('DOMContentLoaded', function() {
             projetoSelect.disabled = true;
             return;
         }
-        fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`)
+        fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'sucesso') {
@@ -78,102 +78,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(error => console.error('Erro ao buscar projetos:', error));
     }
 
-    // --- FUNÇÃO ATUALIZADA: CARREGAR E EXIBIR APONTAMENTOS AGRUPADOS POR DATA ---
     function carregarApontamentos() {
-            if (!contentArea) return;
-
-            fetch('http://127.0.0.1:5000/apontamentos', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'sucesso') {
-                    contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
-
-                    if (data.apontamentos.length === 0) {
-                        contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
-                        return;
-                    }
-
-                    let dataAtual = ""; // Variável para controlar a data do grupo
-
-                    data.apontamentos.forEach(ap => {
-                        const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
-
-                        if (dataDoApontamento !== dataAtual) {
-                            dataAtual = dataDoApontamento; // Atualiza a data do grupo
-                            // E cria um novo cabeçalho de data na tela
-                            const headerDiv = document.createElement('h3');
-                            headerDiv.className = 'data-header';
-                            headerDiv.textContent = `${dataAtual}`;
-                            contentArea.appendChild(headerDiv);
-                        }
-
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = 'apontamento-item';
-
-                        const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                        const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
-
-                        // Template atualizado para mostrar as 3 informações
-                        itemDiv.innerHTML = `
-                            <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
-                            <span>${inicio} - ${fim}</span>
-                            <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
-                        `;
-                        contentArea.appendChild(itemDiv);
-                    });
-                } else {
-                    contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
+        if (!contentArea) return;
+        fetch('http://127.0.0.1:5000/apontamentos', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
+                if (data.apontamentos.length === 0) {
+                    contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
+                    return;
                 }
-            }).catch(error => {
-                console.error('Erro ao buscar apontamentos:', error);
-                contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
-            });
-        }
-
-        async function verificarApontamentoAtivo() {
-        try {
-            const response = await fetch('http://127.0.0.1:5000/apontamentos/ativo', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-
-            if (data.status === 'sucesso' && data.apontamento) {
-                const ap = data.apontamento;
-                apontamentoAtivoId = ap.ID_Apontamento; // Guarda o ID do apontamento que já está rodando
-
-                // Calcula quantos segundos já se passaram desde que o timer foi iniciado
-                const dataInicio = new Date(ap.Data_Inicio);
-                const agora = new Date();
-                segundosPassados = Math.floor((agora - dataInicio) / 1000);
-
-                // "Reconstrói" a interface para o estado de "rodando"
-                startStopBtn.textContent = 'PARAR';
-                startStopBtn.style.backgroundColor = '#dc3545'; // Vermelho
-                [pilarSelect, projetoSelect, observacaoInput].forEach(el => el.disabled = true);
-                
-                // Preenche os campos com os dados do apontamento ativo (vamos precisar buscar os nomes)
-                observacaoInput.value = ap.Descricao;
-                
-                // Inicia o timer visual a partir do tempo já decorrido
-                timerInterval = setInterval(() => {
-                    segundosPassados++;
-                    timerDisplay.textContent = formatarTempo(segundosPassados);
-                }, 1000);
+                let dataAtual = "";
+                data.apontamentos.forEach(ap => {
+                    const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
+                    if (dataDoApontamento !== dataAtual) {
+                        dataAtual = dataDoApontamento;
+                        const headerDiv = document.createElement('h3');
+                        headerDiv.className = 'data-header';
+                        headerDiv.textContent = dataAtual;
+                        contentArea.appendChild(headerDiv);
+                    }
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'apontamento-item';
+                    const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+                    itemDiv.innerHTML = `
+                        <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
+                        <span>${inicio} - ${fim}</span>
+                        <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
+                    `;
+                    contentArea.appendChild(itemDiv);
+                });
+            } else {
+                contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
             }
-        } catch (error) {
-            console.error("Erro ao verificar apontamento ativo:", error);
-        }
+        }).catch(error => {
+            console.error('Erro ao buscar apontamentos:', error);
+            contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
+        });
     }
-
-    // --- 4. LÓGICA DO CRONÔMETRO ---
-    let timerInterval = null;
-    let segundosPassados = 0;
-    let apontamentoAtivoId = null;
-
+    
+    // --- 4. FUNÇÕES DO CRONÔMETRO ---
     function formatarTempo(segundos) {
         const h = Math.floor(segundos / 3600).toString().padStart(2, '0');
         const m = Math.floor((segundos % 3600) / 60).toString().padStart(2, '0');
@@ -206,11 +155,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 segundosPassados++;
                 timerDisplay.textContent = formatarTempo(segundosPassados);
             }, 1000);
+            carregarApontamentos(); // Atualiza a lista para mostrar o item "Rodando..."
         } else {
             alert(`Erro: ${result.mensagem}`);
         }
     }
-
+    
     async function pararCronometro() {
         const response = await fetch('http://127.0.0.1:5000/apontamentos/parar', {
             method: 'POST',
@@ -234,16 +184,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 5. EVENT LISTENERS PRINCIPAIS ---
-    logoutButton.addEventListener('click', function() {
+    async function verificarApontamentoAtivo() {
+        try {
+            const response = await fetch('http://127.0.0.1:5000/apontamentos/ativo', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            if (data.status === 'sucesso' && data.apontamento) {
+                const ap = data.apontamento;
+                apontamentoAtivoId = ap.ID_Apontamento;
+                const dataInicio = new Date(ap.Data_Inicio);
+                const agora = new Date();
+                segundosPassados = Math.floor((agora - dataInicio) / 1000);
+                startStopBtn.textContent = 'PARAR';
+                startStopBtn.style.backgroundColor = '#dc3545';
+                [pilarSelect, projetoSelect, observacaoInput].forEach(el => el.disabled = true);
+                observacaoInput.value = ap.Descricao;
+                timerInterval = setInterval(() => {
+                    segundosPassados++;
+                    timerDisplay.textContent = formatarTempo(segundosPassados);
+                }, 1000);
+            }
+        } catch (error) {
+            console.error("Erro ao verificar apontamento ativo:", error);
+        }
+    }
+
+    // --- 5. EVENT LISTENERS ---
+    logoutButton.addEventListener('click', () => {
         localStorage.removeItem('token');
         alert("Você saiu da sua conta.");
         window.location.href = 'login.html';
     });
 
-    pilarSelect.addEventListener('change', function() {
-        carregarProjetos(pilarSelect.value);
-    });
+    pilarSelect.addEventListener('change', () => carregarProjetos(pilarSelect.value));
 
     startStopBtn.addEventListener('click', () => {
         if (timerInterval) {
@@ -252,6 +228,11 @@ document.addEventListener('DOMContentLoaded', function() {
             iniciarCronometro();
         }
     });
+
+    navCronometro.addEventListener('click', (e) => { e.preventDefault(); showView('cronometro-view'); });
+    navPlanilha.addEventListener('click', (e) => { e.preventDefault(); showView('planilha-view'); });
+    navRelatorioDetalhado.addEventListener('click', (e) => { e.preventDefault(); showView('relatorio-detalhado-view'); });
+    navGestao.addEventListener('click', (e) => { e.preventDefault(); showView('gestao-view'); });
 
     // --- 6. INICIALIZAÇÃO DA PÁGINA ---
     showView('cronometro-view');
