@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const timerDisplay = document.getElementById('timer-display');
     const startStopBtn = document.getElementById('start-stop-btn');
     const contentArea = document.querySelector('.content-area');
+    const planilhaContainer = document.getElementById('planilha-container');
     const navCronometro = document.getElementById('nav-cronometro');
     const navPlanilha = document.getElementById('nav-planilha');
     const navRelatorioDetalhado = document.getElementById('nav-relatorio-detalhado');
@@ -227,8 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function iniciarCronometro() {
-        if (!pilarSelect.value || !projetoSelect.value || !observacaoInput.value) {
-            alert("Por favor, selecione Pilar, Projeto e preencha a observação.");
+        if (!pilarSelect.value || !projetoSelect.value) {
+            alert("Por favor, selecione um Pilar e um Projeto.");
             return;
         }
         const dados = {
@@ -326,48 +327,52 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function carregarPlanilha() {
-        const planilhaContainer = document.getElementById('planilha-container');
         if (!planilhaContainer) return;
+        planilhaContainer.innerHTML = 'Carregando...';
 
-        fetch('http://127.0.0.1:5000/planilha', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
+        fetch('http://127.0.0.1:5000/planilha', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'sucesso') {
-                planilhaContainer.innerHTML = ''; // Limpa a mensagem "Carregando..."
-                
+                planilhaContainer.innerHTML = ''; 
                 const table = document.createElement('table');
-                table.className = 'planilha-table'; // Classe para estilização
-
-                // --- Cria o Cabeçalho (Dias da Semana) ---
+                table.className = 'planilha-table';
+                
                 const thead = document.createElement('thead');
-                let headerRow = '<tr><th>Atividade</th>';
+                let headerRow = '<tr><th>Atividade / Projeto</th>';
                 const diasDaSemana = [];
                 for (let i = 0; i < 7; i++) {
                     const dia = new Date(data.inicio_semana);
-                    dia.setDate(dia.getDate() + i);
-                    const diaFormatado = dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                    headerRow += `<th>${diaFormatado}</th>`;
-                    diasDaSemana.push(dia.toISOString().split('T')[0]); // Guarda 'AAAA-MM-DD'
+                    dia.setUTCDate(dia.getUTCDate() + i);
+                    headerRow += `<th>${dia.toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' })}<br>${dia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</th>`;
+                    diasDaSemana.push(dia.toISOString().split('T')[0]);
                 }
-                headerRow += '</tr>';
-                thead.innerHTML = headerRow;
+                thead.innerHTML = headerRow + '</tr>';
                 table.appendChild(thead);
 
-                // --- Cria o Corpo da Tabela (Tarefas e Horas) ---
                 const tbody = document.createElement('tbody');
-                for (const tarefa in data.planilha) {
-                    let bodyRow = `<tr><td>${tarefa}</td>`;
-                    diasDaSemana.forEach(diaKey => {
-                        const horas = data.planilha[tarefa][diaKey] || '-'; // Pega as horas ou usa '-' se não houver
-                        bodyRow += `<td>${horas}</td>`;
-                    });
-                    bodyRow += '</tr>';
-                    tbody.innerHTML += bodyRow;
-                }
-                table.appendChild(tbody);
+                const tarefas = Object.keys(data.planilha);
 
+                tarefas.forEach(tarefaKey => {
+                    const tarefaInfo = data.planilha[tarefaKey];
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${tarefaKey}</td>`;
+
+                    diasDaSemana.forEach(diaKey => {
+                        const horas = tarefaInfo.dias[diaKey] || '-';
+                        const td = document.createElement('td');
+                        td.textContent = horas;
+                        
+                        // A MÁGICA: Guardamos o ID do projeto e a data na própria célula
+                        td.dataset.projetoId = tarefaInfo.projetoId;
+                        td.dataset.date = diaKey;
+                        
+                        td.addEventListener('click', () => tornarCelulaEditavel(td));
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
                 planilhaContainer.appendChild(table);
             } else {
                 planilhaContainer.textContent = `Erro: ${data.mensagem}`;
@@ -375,8 +380,73 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Erro ao carregar planilha:', error);
-            planilhaContainer.textContent = 'Erro de conexão ao carregar planilha.';
+            planilhaContainer.textContent = 'Erro de conexão.';
         });
+    }
+
+    function tornarCelulaEditavel(tdElement) {
+        // Se já houver um input dentro, não faz nada (evita cliques duplos)
+        if (tdElement.querySelector('input')) return;
+
+        const valorAtual = tdElement.textContent === '-' ? '' : tdElement.textContent;
+        tdElement.innerHTML = ''; // Limpa a célula
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = valorAtual;
+        input.placeholder = "HH:MM";
+
+        // Evento para salvar quando o campo perde o foco (clica fora)
+        input.addEventListener('blur', () => {
+            salvarAlteracaoPlanilha(tdElement, input.value);
+        });
+
+        // Evento para salvar quando a tecla "Enter" é pressionada
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                salvarAlteracaoPlanilha(tdElement, input.value);
+            }
+        });
+
+        tdElement.appendChild(input);
+        input.focus(); // Foca automaticamente no campo de texto
+    }
+
+    async function salvarAlteracaoPlanilha(tdElement, novoValor) {
+        // Pega as informações que guardamos na célula
+        const projetoId = tdElement.dataset.projetoId;
+        const data = tdElement.dataset.date;
+
+        let duracaoSegundos = 0;
+        const partes = novoValor.trim().split(':');
+        
+        // Converte "HH:MM" para segundos
+        if (partes.length === 2 && novoValor.trim() !== '') {
+            const horas = parseInt(partes[0]) || 0;
+            const minutos = parseInt(partes[1]) || 0;
+            duracaoSegundos = (horas * 3600) + (minutos * 60);
+        }
+
+        try {
+            const response = await fetch('http://127.0.0.1:5000/planilha/salvar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                body: JSON.stringify({
+                    projeto_id: projetoId,
+                    data: data,
+                    duracao_segundos: duracaoSegundos
+                })
+            });
+            const result = await response.json();
+            if (result.status !== 'sucesso') {
+                alert(`Erro: ${result.mensagem}`);
+            }
+        } catch(error) {
+            alert("Erro de conexão ao salvar.");
+        } finally {
+            // Sempre recarrega a planilha para mostrar o dado atualizado
+            carregarPlanilha(); 
+        }
     }
 
     navCronometro.addEventListener('click', (e) => { e.preventDefault(); showView('cronometro-view'); });

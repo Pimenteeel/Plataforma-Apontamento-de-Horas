@@ -177,10 +177,10 @@ def token_required(f):
 def iniciar_apontamento(current_user_id):
     data = request.get_json()
     projeto_id = data.get('projeto_id')
-    descricao = data.get('descricao')
+    descricao = data.get('descricao') or ""
 
-    if not projeto_id or not descricao:
-        return jsonify({'status': 'erro', 'mensagem': 'Projeto e descrição são obrigatórios'}), 400
+    if not projeto_id:
+        return jsonify({'status': 'erro', 'mensagem': 'Projeto é obrigatório'}), 400
 
     conn = get_db_connection()
     if conn is None:
@@ -393,30 +393,27 @@ def excluir_apontamento(current_user_id, apontamento_id):
             cursor.close()
             conn.close()
 
-# --- ROTA PARA BUSCAR DADOS PARA A PLANILHA SEMANAL ---
+# --- ROTA PARA BUSCAR DADOS PARA A PLANILHA (VERSÃO ATUALIZADA COM ID DO PROJETO) ---
 @app.route("/planilha", methods=['GET'])
 @token_required
 def get_dados_planilha(current_user_id):
-    # Pega uma data de referência da URL (ex: /planilha?data=2025-10-16)
-    # Se nenhuma data for enviada, usa a data de hoje.
     data_ref_str = request.args.get('data', datetime.date.today().isoformat())
     data_ref = datetime.datetime.fromisoformat(data_ref_str).date()
 
-    # Calcula o início (Segunda) e o fim (Domingo) da semana
     start_of_week = data_ref - datetime.timedelta(days=data_ref.weekday())
     end_of_week = start_of_week + datetime.timedelta(days=6)
 
     conn = get_db_connection()
-    if conn is None:
-        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+    if conn is None: return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão'}), 500
 
     cursor = conn.cursor(dictionary=True)
     try:
-        # Query que agrupa os dados e soma as durações
+        # QUERY ATUALIZADA: Agora também selecionamos o ID_Projeto
         query = """
             SELECT
                 p.NomePilar,
                 pr.NomeProjeto,
+                pr.ID_Projeto, 
                 a.Descricao,
                 DATE(a.Data_Inicio) AS Dia,
                 SUM(TIME_TO_SEC(TIMEDIFF(a.Data_Fim, a.Data_Inicio))) AS Total_Segundos
@@ -428,37 +425,38 @@ def get_dados_planilha(current_user_id):
                 a.Data_Inicio BETWEEN %s AND %s AND
                 a.Data_Fim IS NOT NULL
             GROUP BY
-                p.NomePilar, pr.NomeProjeto, a.Descricao, DATE(a.Data_Inicio)
+                p.NomePilar, pr.NomeProjeto, pr.ID_Projeto, a.Descricao, DATE(a.Data_Inicio)
             ORDER BY
                 Dia;
         """
-        # Adicionamos +1 dia ao end_of_week porque o BETWEEN em DATETIME é inclusivo
         cursor.execute(query, (current_user_id, start_of_week, end_of_week + datetime.timedelta(days=1)))
         
         resultados = cursor.fetchall()
         cursor.close()
         conn.close()
 
-        # O Python agora vai reestruturar os dados para o frontend
-        planilha = {}
+        # Reestrutura os dados em um formato mais inteligente para o frontend
+        planilha_data = {}
         for res in resultados:
             tarefa_key = f"{res['NomePilar']} | {res['NomeProjeto']} | {res['Descricao']}"
-            if tarefa_key not in planilha:
-                planilha[tarefa_key] = {}
+            if tarefa_key not in planilha_data:
+                planilha_data[tarefa_key] = {
+                    'projetoId': res['ID_Projeto'], # <-- Guardamos o ID do projeto
+                    'dias': {}
+                }
             
             dia_str = res['Dia'].isoformat()
             
-            # Formata o total de segundos para HH:MM:SS
             total_seconds = int(res['Total_Segundos'])
             h, rem = divmod(total_seconds, 3600)
             m, s = divmod(rem, 60)
-            planilha[tarefa_key][dia_str] = f"{int(h):02}:{int(m):02}:{int(s):02}"
+            # Formata para HH:MM, como você pediu
+            planilha_data[tarefa_key]['dias'][dia_str] = f"{int(h):02}:{int(m):02}:{int(s):02}"
 
         return jsonify({
             'status': 'sucesso', 
-            'planilha': planilha,
+            'planilha': planilha_data,
             'inicio_semana': start_of_week.isoformat(),
-            'fim_semana': end_of_week.isoformat()
         }), 200
 
     except Exception as e:
@@ -466,6 +464,60 @@ def get_dados_planilha(current_user_id):
             cursor.close()
             conn.close()
         return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+    
+    # --- ROTA PARA SALVAR/ATUALIZAR UM APONTAMENTO DA PLANILHA (VERSÃO CORRIGIDA) ---
+@app.route("/planilha/salvar", methods=['POST'])
+@token_required
+def salvar_apontamento_planilha(current_user_id):
+    data = request.get_json()
+    projeto_id = data.get('projeto_id')
+    data_apontamento_str = data.get('data') # Espera uma data no formato 'AAAA-MM-DD'
+    duracao_segundos = data.get('duracao_segundos')
+
+    if not all([projeto_id, data_apontamento_str, duracao_segundos is not None]):
+        return jsonify({'status': 'erro', 'mensagem': 'Dados incompletos'}), 400
+
+    conn = get_db_connection()
+    if conn is None: return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão'}), 500
+
+    cursor = conn.cursor()
+    try:
+        # Converte a string 'AAAA-MM-DD' para um objeto de data
+        data_apontamento = datetime.datetime.fromisoformat(data_apontamento_str).date()
+        
+        # Define o início e o fim do dia para a query
+        inicio_do_dia = datetime.datetime.combine(data_apontamento, datetime.time.min)
+        fim_do_dia = inicio_do_dia + datetime.timedelta(days=1)
+
+        # 1. Deleta todos os apontamentos existentes para este usuário, neste projeto, neste dia.
+        #    QUERY CORRIGIDA: Usa BETWEEN para ser mais compatível.
+        del_query = """
+            DELETE FROM Apontamentos 
+            WHERE fk_ID_Usuario = %s AND fk_ID_Projeto = %s AND Data_Inicio >= %s AND Data_Inicio < %s
+        """
+        cursor.execute(del_query, (current_user_id, projeto_id, inicio_do_dia, fim_do_dia))
+
+        # 2. Se a duração for maior que zero, insere um novo apontamento consolidado.
+        if int(duracao_segundos) > 0:
+            nova_data_inicio = datetime.datetime.combine(data_apontamento, datetime.time.min)
+            nova_data_fim = nova_data_inicio + datetime.timedelta(seconds=int(duracao_segundos))
+            
+            ins_query = """
+                INSERT INTO Apontamentos (fk_ID_Usuario, fk_ID_Projeto, Descricao, Data_Inicio, Data_Fim)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(ins_query, (current_user_id, projeto_id, 'Entrada via Planilha', nova_data_inicio, nova_data_fim))
+
+        conn.commit()
+        return jsonify({'status': 'sucesso', 'mensagem': 'Planilha atualizada'}), 200
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
