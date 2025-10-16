@@ -309,3 +309,8 @@ button:hover {
     padding: 5px 10px;
     border-radius: 5px;
 }
+
+.apontamento-duracao:hover {
+    cursor: pointer;
+    background-color: #555; /* Muda a cor de fundo ao passar o mouse */
+}

@@ -241,6 +241,46 @@ def parar_apontamento(current_user_id):
         conn.close()
         return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
 
+# --- ROTA PARA ATUALIZAR (EDITAR) A DURAÇÃO DE UM APONTAMENTO ---
+@app.route("/apontamentos/<int:apontamento_id>", methods=['PUT'])
+@token_required
+def atualizar_apontamento(current_user_id, apontamento_id):
+    data = request.get_json()
+    duration_seconds = data.get('duration_seconds')
+
+    if duration_seconds is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Duração em segundos é obrigatória'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro de conexão com o banco'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # 1. Busca o apontamento para garantir que ele existe e pertence ao usuário logado
+        cursor.execute("SELECT Data_Inicio FROM Apontamentos WHERE ID_Apontamento = %s AND fk_ID_Usuario = %s", (apontamento_id, current_user_id))
+        apontamento = cursor.fetchone()
+        
+        if not apontamento:
+            return jsonify({'status': 'erro', 'mensagem': 'Apontamento não encontrado ou não pertence a você'}), 404
+
+        # 2. Calcula a nova Data_Fim com base na Data_Inicio e na nova duração
+        data_inicio = apontamento['Data_Inicio']
+        nova_data_fim = data_inicio + datetime.timedelta(seconds=int(duration_seconds))
+
+        # 3. Atualiza o registro no banco de dados com a nova Data_Fim
+        query = "UPDATE Apontamentos SET Data_Fim = %s WHERE ID_Apontamento = %s"
+        cursor.execute(query, (nova_data_fim, apontamento_id))
+        conn.commit()
+        
+        return jsonify({'status': 'sucesso', 'mensagem': 'Apontamento atualizado com sucesso'}), 200
+    except Exception as e:
+        return jsonify({'status': 'erro', 'mensagem': str(e)}), 500
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
 # --- ROTA PARA LISTAR OS APONTAMENTOS DO USUÁRIO LOGADO (VERSÃO CORRIGIDA) ---
 # --- ROTA PARA LISTAR OS APONTAMENTOS DO USUÁRIO LOGADO (VERSÃO DEFINITIVA) ---
 @app.route("/apontamentos", methods=['GET'])

@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function carregarApontamentos() {
         if (!contentArea) return;
+
         fetch('http://127.0.0.1:5000/apontamentos', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
@@ -92,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
                     return;
                 }
+
                 let dataAtual = "";
                 data.apontamentos.forEach(ap => {
                     const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
@@ -102,17 +104,30 @@ document.addEventListener('DOMContentLoaded', function() {
                         headerDiv.textContent = dataAtual;
                         contentArea.appendChild(headerDiv);
                     }
+
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'apontamento-item';
                     const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+                    
+                    // MUDANÇA: Adicionamos um data-id na duração para sabermos qual apontamento editar
                     itemDiv.innerHTML = `
                         <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
                         <span>${inicio} - ${fim}</span>
-                        <span class="apontamento-duracao">${ap.Duracao || 'Rodando...'}</span>
+                        <span class="apontamento-duracao" data-id="${ap.ID_Apontamento}">${ap.Duracao || 'Rodando...'}</span>
                     `;
                     contentArea.appendChild(itemDiv);
                 });
+
+                // MUDANÇA: Depois de criar os itens, adicionamos o evento de clique a cada um
+                document.querySelectorAll('.apontamento-duracao').forEach(span => {
+                    if (span.textContent !== 'Rodando...') { // Só permite editar apontamentos finalizados
+                        span.addEventListener('click', function() {
+                            tornarEditavel(this);
+                        });
+                    }
+                });
+
             } else {
                 contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
             }
@@ -120,6 +135,60 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Erro ao buscar apontamentos:', error);
             contentArea.innerHTML = '<h2>Meus Apontamentos</h2><p style="color:red;">Erro de conexão.</p>';
         });
+    }
+
+    function tornarEditavel(spanElement) {
+        const apontamentoId = spanElement.dataset.id;
+        const valorAtual = spanElement.textContent;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = valorAtual;
+        input.className = 'apontamento-duracao'; // Usa a mesma classe para manter o estilo
+        
+        spanElement.replaceWith(input);
+        input.focus(); // Foca no campo
+
+        // Evento para salvar ao pressionar "Enter"
+        input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                const novoValor = input.value.trim();
+                const partes = novoValor.split(':');
+                if (partes.length === 3) {
+                    const segundos = (+partes[0]) * 3600 + (+partes[1]) * 60 + (+partes[2]);
+                    salvarEdicao(apontamentoId, segundos);
+                } else {
+                    alert("Formato inválido. Use HH:MM:SS");
+                    carregarApontamentos(); // Cancela a edição
+                }
+            }
+        });
+
+        // Evento para cancelar se clicar fora
+        input.addEventListener('blur', function() {
+            carregarApontamentos();
+        });
+    }
+
+    async function salvarEdicao(apontamentoId, durationInSeconds) {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/apontamentos/${apontamentoId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ duration_seconds: durationInSeconds })
+            });
+            const result = await response.json();
+            if (result.status !== 'sucesso') {
+                alert(`Erro: ${result.mensagem}`);
+            }
+        } catch (error) {
+            alert("Erro de conexão ao salvar.");
+        } finally {
+            carregarApontamentos(); // Sempre recarrega a lista para mostrar o valor final
+        }
     }
     
     // --- 4. FUNÇÕES DO CRONÔMETRO ---
