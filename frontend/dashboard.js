@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const tarefaInfo = data.planilha[tarefaKey];
                     const [pilar, projeto, descricao] = tarefaKey.split(' | ');
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${pilar}</td><td>${projeto}</td><td>${descricao}</td>`;
+                    tr.innerHTML = `<td><span class="pilar-tag" style="background-color: ${getColorForPillar(pilar)}">${pilar}</span></td><td>${projeto}</td><td>${descricao}</td>`;
                     diasDaSemana.forEach(diaKey => {
                         const horas = tarefaInfo.dias[diaKey] || '-';
                         const td = document.createElement('td');

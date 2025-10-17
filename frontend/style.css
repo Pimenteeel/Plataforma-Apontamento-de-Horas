@@ -370,11 +370,15 @@ button:hover {
     top: 0;
 }
 
-.planilha-table td:first-child,
+.planilha-table td:first-child{
+    text-align: left;
+    font-weight: bold;
+    color: white;
+}
+
 .planilha-table td:nth-child(2),
 .planilha-table td:nth-child(3) {
     text-align: left;
-    font-weight: bold;
     color: white;
 }
 
