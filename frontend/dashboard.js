@@ -451,27 +451,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function tornarCelulaEditavel(tdElement) {
+        // Se já houver um input dentro, não faz nada (evita cliques duplos)
         if (tdElement.querySelector('input')) return;
-        const valorAtual = tdElement.textContent === '-' ? '' : tdElement.textContent;
-        tdElement.innerHTML = '';
+
+        const valorAtual = tdElement.textContent.trim();
+        tdElement.innerHTML = ''; // Limpa a célula
+
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = valorAtual;
+        input.value = valorAtual === '-' ? '' : valorAtual;
         input.placeholder = "HH:MM";
 
-        const salvar = () => {
-            salvarAlteracaoPlanilha(tdElement, input.value);
-        };
+        // --- A LÓGICA CORRIGIDA ESTÁ AQUI ---
 
-        input.addEventListener('blur', salvar);
+        // Evento para quando o campo perde o foco (clica fora)
+        input.addEventListener('blur', () => {
+            const novoValor = input.value.trim();
+            const valorOriginal = valorAtual === '-' ? '' : valorAtual;
+
+            // Se o valor não mudou, apenas cancela a edição visualmente, SEM recarregar a tabela
+            if (novoValor === valorOriginal) {
+                tdElement.innerHTML = '';
+                tdElement.textContent = valorAtual;
+            } else {
+                // Se o valor MUDOU, aí sim chama a função para salvar
+                salvarAlteracaoPlanilha(tdElement, novoValor);
+            }
+        });
+
+        // Evento para quando a tecla "Enter" é pressionada (este continua igual)
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                salvar();
+                salvarAlteracaoPlanilha(tdElement, input.value);
             }
         });
 
         tdElement.appendChild(input);
-        input.focus();
+        input.focus(); // Foca automaticamente no campo de texto
     }
 
     async function salvarAlteracaoPlanilha(tdElement, novoValor) {
@@ -483,7 +499,9 @@ document.addEventListener('DOMContentLoaded', function() {
             descricao = parentRow.querySelector('#new-descricao-input').value;
             if (!projetoId) {
                 alert("Para adicionar um novo apontamento, ao menos um Projeto deve ser selecionado.");
-                carregarPlanilha();
+                // Restaura o valor visualmente para cancelar a edição
+                tdElement.innerHTML = '';
+                tdElement.textContent = '-';
                 return;
             }
         } else {
@@ -509,13 +527,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             const result = await response.json();
-            if (result.status !== 'sucesso') {
+
+            // --- MUDANÇA PRINCIPAL ---
+            if (result.status === 'sucesso') {
+                if (parentRow.id === 'add-entry-row') {
+                    // Se estávamos na linha de adição, um novo item foi criado.
+                    // A única solução aqui é recarregar a planilha para ver a nova linha.
+                    carregarPlanilha();
+                } else {
+                    // Se editamos uma linha existente, apenas atualizamos a célula.
+                    // Isso evita o "reset" da linha de adição.
+                    const h = Math.floor(duracaoSegundos / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((duracaoSegundos % 3600) / 60).toString().padStart(2, '0');
+                    tdElement.innerHTML = ''; // Limpa o input
+                    tdElement.textContent = duracaoSegundos > 0 ? `${h}:${m}` : '-';
+                }
+            } else {
                 alert(`Erro: ${result.mensagem}`);
+                carregarPlanilha(); // Recarrega em caso de erro para reverter
             }
         } catch(error) {
             alert("Erro de conexão ao salvar.");
-        } finally {
-            carregarPlanilha();
+            carregarPlanilha(); // Recarrega em caso de erro para reverter
         }
     }
 
