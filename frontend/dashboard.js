@@ -32,6 +32,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let apontamentoAtivoId = null;
     let currentWeekDate = new Date();
 
+    let novoApontamentoPilarId = '';
+    let novoApontamentoProjetoId = '';
+    let novoApontamentoDescricao = '';
+
     // --- 2. LÓGICA DE NAVEGAÇÃO ENTRE TELAS ---
     function showView(viewId) {
         views.forEach(view => view.style.display = 'none');
@@ -363,18 +367,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const pilarSelectNew = document.createElement('select');
         pilarSelectNew.id = 'new-pilar-select';
         pilarSelectNew.innerHTML = document.getElementById('pilar-select').innerHTML;
+        pilarSelectNew.value = novoApontamentoPilarId;
         pilarTd.appendChild(pilarSelectNew);
         const projetoTd = document.createElement('td');
         const projetoSelectNew = document.createElement('select');
         projetoSelectNew.id = 'new-projeto-select';
-        projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
-        projetoSelectNew.disabled = true;
+        if (novoApontamentoPilarId) {
+            fetch(`http://127.0.0.1:5000/projetos?pilar_id=${novoApontamentoPilarId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'sucesso') {
+                    projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
+                    data.projetos.forEach(p => {
+                        projetoSelectNew.innerHTML += `<option value="${p.ID_Projeto}">${p.NomeProjeto}</option>`;
+                    });
+                    projetoSelectNew.value = novoApontamentoProjetoId;
+                    projetoSelectNew.disabled = false;
+                }
+            });
+        } else {
+            projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
+            projetoSelectNew.disabled = true;
+        }
         projetoTd.appendChild(projetoSelectNew);
         const descTd = document.createElement('td');
         const descInputNew = document.createElement('input');
         descInputNew.type = 'text';
         descInputNew.id = 'new-descricao-input';
         descInputNew.placeholder = 'Nova observação...';
+        descInputNew.value = novoApontamentoDescricao;
         descTd.appendChild(descInputNew);
         tr.appendChild(pilarTd);
         tr.appendChild(projetoTd);
@@ -386,21 +407,37 @@ document.addEventListener('DOMContentLoaded', function() {
             td.addEventListener('click', () => tornarCelulaEditavel(td));
             tr.appendChild(td);
         });
-        footer.innerHTML = ''; // Limpa o rodapé antes de adicionar
+        footer.innerHTML = '';
         footer.appendChild(tr);
         pilarSelectNew.addEventListener('change', () => {
-            const pilarId = pilarSelectNew.value;
-            fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`, { headers: { 'Authorization': `Bearer ${token}` } })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'sucesso') {
-                    projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
-                    data.projetos.forEach(p => {
-                        projetoSelectNew.innerHTML += `<option value="${p.ID_Projeto}">${p.NomeProjeto}</option>`;
-                    });
-                    projetoSelectNew.disabled = false;
-                }
-            });
+            novoApontamentoPilarId = pilarSelectNew.value;
+            novoApontamentoProjetoId = '';
+            carregarProjetosParaPlanilha(novoApontamentoPilarId, projetoSelectNew);
+        });
+        projetoSelectNew.addEventListener('change', () => {
+            novoApontamentoProjetoId = projetoSelectNew.value;
+        });
+        descInputNew.addEventListener('input', () => {
+            novoApontamentoDescricao = descInputNew.value;
+        });
+    }
+
+    function carregarProjetosParaPlanilha(pilarId, selectElement) {
+        if (!pilarId) {
+            selectElement.innerHTML = '<option value="">Selecione Projeto</option>';
+            selectElement.disabled = true;
+            return;
+        }
+        fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                selectElement.innerHTML = '<option value="">Selecione Projeto</option>';
+                data.projetos.forEach(p => {
+                    selectElement.innerHTML += `<option value="${p.ID_Projeto}">${p.NomeProjeto}</option>`;
+                });
+                selectElement.disabled = false;
+            }
         });
     }
 
