@@ -451,7 +451,7 @@ def get_dados_planilha(current_user_id):
             h, rem = divmod(total_seconds, 3600)
             m, s = divmod(rem, 60)
             # Formata para HH:MM, como você pediu
-            planilha_data[tarefa_key]['dias'][dia_str] = f"{int(h):02}:{int(m):02}:{int(s):02}"
+            planilha_data[tarefa_key]['dias'][dia_str] = f"{int(h):02}:{int(m):02}"
 
         return jsonify({
             'status': 'sucesso', 
@@ -471,9 +471,9 @@ def get_dados_planilha(current_user_id):
 def salvar_apontamento_planilha(current_user_id):
     data = request.get_json()
     projeto_id = data.get('projeto_id')
-    data_apontamento_str = data.get('data') # Espera uma data no formato 'AAAA-MM-DD'
+    data_apontamento_str = data.get('data')
     duracao_segundos = data.get('duracao_segundos')
-    descricao = data.get('descricao', 'Entrada via Planilha')
+    descricao = data.get('descricao', '') # A descrição agora é crucial
 
     if not all([projeto_id, data_apontamento_str, duracao_segundos is not None]):
         return jsonify({'status': 'erro', 'mensagem': 'Dados incompletos'}), 400
@@ -483,30 +483,22 @@ def salvar_apontamento_planilha(current_user_id):
 
     cursor = conn.cursor()
     try:
-        # Converte a string 'AAAA-MM-DD' para um objeto de data
         data_apontamento = datetime.datetime.fromisoformat(data_apontamento_str).date()
-        
-        # Define o início e o fim do dia para a query
         inicio_do_dia = datetime.datetime.combine(data_apontamento, datetime.time.min)
         fim_do_dia = inicio_do_dia + datetime.timedelta(days=1)
 
-        # 1. Deleta todos os apontamentos existentes para este usuário, neste projeto, neste dia.
-        #    QUERY CORRIGIDA: Usa BETWEEN para ser mais compatível.
+        # 1. Deleta o apontamento existente para esta tarefa específica neste dia.
         del_query = """
             DELETE FROM Apontamentos 
-            WHERE fk_ID_Usuario = %s AND fk_ID_Projeto = %s AND Data_Inicio >= %s AND Data_Inicio < %s
+            WHERE fk_ID_Usuario = %s AND fk_ID_Projeto = %s AND Descricao = %s AND Data_Inicio >= %s AND Data_Inicio < %s
         """
-        cursor.execute(del_query, (current_user_id, projeto_id, inicio_do_dia, fim_do_dia))
+        cursor.execute(del_query, (current_user_id, projeto_id, descricao, inicio_do_dia, fim_do_dia))
 
         # 2. Se a duração for maior que zero, insere um novo apontamento consolidado.
         if int(duracao_segundos) > 0:
             nova_data_inicio = datetime.datetime.combine(data_apontamento, datetime.time.min)
             nova_data_fim = nova_data_inicio + datetime.timedelta(seconds=int(duracao_segundos))
-            
-            ins_query = """
-                INSERT INTO Apontamentos (fk_ID_Usuario, fk_ID_Projeto, Descricao, Data_Inicio, Data_Fim)
-                VALUES (%s, %s, %s, %s, %s)
-            """
+            ins_query = "INSERT INTO Apontamentos (fk_ID_Usuario, fk_ID_Projeto, Descricao, Data_Inicio, Data_Fim) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(ins_query, (current_user_id, projeto_id, descricao, nova_data_inicio, nova_data_fim))
 
         conn.commit()

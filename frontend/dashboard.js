@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 table.className = 'planilha-table';
                 
                 const thead = document.createElement('thead');
-                let headerRow = '<tr><th>Atividade / Projeto</th>';
+                let headerRow = '<tr><th>Pilar</th><th>Projeto</th><th>Observação</th>';
                 const diasDaSemana = [];
                 for (let i = 0; i < 7; i++) {
                     const dia = new Date(data.inicio_semana);
@@ -350,80 +350,151 @@ document.addEventListener('DOMContentLoaded', function() {
                 thead.innerHTML = headerRow + '</tr>';
                 table.appendChild(thead);
 
-                const tbody = document.createElement('tbody');
+                const tbody = document.getElementById('planilha-body') || document.createElement('tbody');
+                tbody.id = 'planilha-body';
+                tbody.innerHTML = ''; // Limpa as linhas antigas
+                
                 const tarefas = Object.keys(data.planilha);
-
                 tarefas.forEach(tarefaKey => {
                     const tarefaInfo = data.planilha[tarefaKey];
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${tarefaKey}</td>`;
+                    const [pilar, projeto, descricao] = tarefaKey.split(' | ');
 
-                    // Extrai a descrição original da chave da tarefa
-                    const descricaoOriginal = tarefaKey.split(' | ')[2].trim();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${pilar}</td><td>${projeto}</td><td>${descricao}</td>`;
 
                     diasDaSemana.forEach(diaKey => {
                         const horas = tarefaInfo.dias[diaKey] || '-';
                         const td = document.createElement('td');
                         td.textContent = horas;
-                        
-                        // Guardamos todas as informações necessárias na célula
                         td.dataset.projetoId = tarefaInfo.projetoId;
+                        td.dataset.descricao = descricao;
                         td.dataset.date = diaKey;
-                        td.dataset.descricao = descricaoOriginal; // <-- A MÁGICA ESTÁ AQUI
-                        
                         td.addEventListener('click', () => tornarCelulaEditavel(td));
                         tr.appendChild(td);
                     });
                     tbody.appendChild(tr);
                 });
                 table.appendChild(tbody);
+
+                const tfoot = document.getElementById('planilha-footer') || document.createElement('tfoot');
+                tfoot.id = 'planilha-footer';
+                table.appendChild(tfoot);
+                
                 planilhaContainer.appendChild(table);
+                criarLinhaDeAdicao(tfoot, diasDaSemana);
             } else {
-                planilhaContainer.textContent = `Erro: ${data.mensagem}`;
+                planilhaContainer.innerHTML = `<p style="color:red">Erro: ${data.mensagem}</p>`;
             }
         })
         .catch(error => {
             console.error('Erro ao carregar planilha:', error);
-            planilhaContainer.textContent = 'Erro de conexão.';
+            planilhaContainer.innerHTML = '<p style="color:red">Erro de conexão ao carregar planilha.</p>';
+        });
+    }
+
+    function criarLinhaDeAdicao(footer, diasDaSemana) {
+        const tr = document.createElement('tr');
+        tr.id = 'add-entry-row';
+
+        // Célula para o Pilar (Dropdown)
+        const pilarTd = document.createElement('td');
+        const pilarSelectNew = document.createElement('select');
+        pilarSelectNew.id = 'new-pilar-select';
+        pilarSelectNew.innerHTML = document.getElementById('pilar-select').innerHTML; // Copia os pilares
+        pilarTd.appendChild(pilarSelectNew);
+
+        // Célula para o Projeto (Dropdown)
+        const projetoTd = document.createElement('td');
+        const projetoSelectNew = document.createElement('select');
+        projetoSelectNew.id = 'new-projeto-select';
+        projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
+        projetoSelectNew.disabled = true;
+        projetoTd.appendChild(projetoSelectNew);
+
+        // Célula para a Observação (Input de Texto)
+        const descTd = document.createElement('td');
+        const descInputNew = document.createElement('input');
+        descInputNew.type = 'text';
+        descInputNew.id = 'new-descricao-input';
+        descInputNew.placeholder = 'Nova observação...';
+        descTd.appendChild(descInputNew);
+
+        tr.appendChild(pilarTd);
+        tr.appendChild(projetoTd);
+        tr.appendChild(descTd);
+
+        // Cria as células de tempo clicáveis para a nova linha
+        diasDaSemana.forEach(diaKey => {
+            const td = document.createElement('td');
+            td.textContent = '-';
+            td.dataset.date = diaKey;
+            td.addEventListener('click', () => tornarCelulaEditavel(td));
+            tr.appendChild(td);
+        });
+        footer.appendChild(tr);
+
+        // Lógica para o dropdown de pilar atualizar o de projeto
+        pilarSelectNew.addEventListener('change', () => {
+            const pilarId = pilarSelectNew.value;
+            fetch(`http://127.0.0.1:5000/projetos?pilar_id=${pilarId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'sucesso') {
+                    projetoSelectNew.innerHTML = '<option value="">Selecione Projeto</option>';
+                    data.projetos.forEach(p => {
+                        projetoSelectNew.innerHTML += `<option value="${p.ID_Projeto}">${p.NomeProjeto}</option>`;
+                    });
+                    projetoSelectNew.disabled = false;
+                }
+            });
         });
     }
 
     function tornarCelulaEditavel(tdElement) {
-        // Se já houver um input dentro, não faz nada (evita cliques duplos)
         if (tdElement.querySelector('input')) return;
-
         const valorAtual = tdElement.textContent === '-' ? '' : tdElement.textContent;
-        tdElement.innerHTML = ''; // Limpa a célula
-
+        tdElement.innerHTML = '';
         const input = document.createElement('input');
         input.type = 'text';
         input.value = valorAtual;
         input.placeholder = "HH:MM";
 
-        // Evento para salvar quando o campo perde o foco (clica fora)
-        input.addEventListener('blur', () => {
+        const salvar = () => {
             salvarAlteracaoPlanilha(tdElement, input.value);
-        });
+        };
 
-        // Evento para salvar quando a tecla "Enter" é pressionada
+        input.addEventListener('blur', salvar);
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                salvarAlteracaoPlanilha(tdElement, input.value);
+                salvar();
             }
         });
 
         tdElement.appendChild(input);
-        input.focus(); // Foca automaticamente no campo de texto
+        input.focus();
     }
 
     async function salvarAlteracaoPlanilha(tdElement, novoValor) {
-        const projetoId = tdElement.dataset.projetoId;
-        const data = tdElement.dataset.date;
-        const descricao = tdElement.dataset.descricao; // <-- Pegamos a descrição guardada
+        const parentRow = tdElement.parentElement;
+        let projetoId, descricao;
 
+        if (parentRow.id === 'add-entry-row') {
+            projetoId = parentRow.querySelector('#new-projeto-select').value;
+            descricao = parentRow.querySelector('#new-descricao-input').value;
+            if (!projetoId) {
+                alert("Para adicionar um novo apontamento, ao menos um Projeto deve ser selecionado.");
+                carregarPlanilha();
+                return;
+            }
+        } else {
+            projetoId = tdElement.dataset.projetoId;
+            descricao = tdElement.dataset.descricao;
+        }
+
+        const data = tdElement.dataset.date;
         let duracaoSegundos = 0;
         const partes = novoValor.trim().split(':');
-        if (partes.length >= 1 && partes.length <= 2) {
+        if (partes.length === 2 && novoValor.trim() !== '') {
             const horas = parseInt(partes[0]) || 0;
             const minutos = parseInt(partes[1]) || 0;
             duracaoSegundos = (horas * 3600) + (minutos * 60);
@@ -434,10 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
                 body: JSON.stringify({
-                    projeto_id: projetoId,
-                    data: data,
-                    duracao_segundos: duracaoSegundos,
-                    descricao: descricao // <-- Enviamos a descrição para o backend
+                    projeto_id: projetoId, data: data, duracao_segundos: duracaoSegundos, descricao: descricao
                 })
             });
             const result = await response.json();

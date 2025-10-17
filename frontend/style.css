@@ -429,3 +429,20 @@ button:hover {
     box-sizing: border-box;
     border-radius: 4px;
 }
+
+/* --- Estilos para a linha de adição na planilha --- */
+#add-entry-row select,
+#add-entry-row input {
+    width: 100%;
+    padding: 10px;
+    margin: 0;
+    background-color: #555;
+    border: 1px solid #666;
+    color: white;
+    font-size: 0.9em;
+}
+
+#add-entry-row td {
+    padding: 8px;
+    vertical-align: top; /* Alinha o conteúdo ao topo da célula */
+}
