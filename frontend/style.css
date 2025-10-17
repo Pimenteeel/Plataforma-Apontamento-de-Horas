@@ -426,3 +426,13 @@ button:hover {
     padding: 8px;
     vertical-align: top;
 }
+
+/* --- Estilo para a Tag do Pilar --- */
+.pilar-tag {
+    color: white;
+    padding: 4px 10px;      /* Espaçamento interno para criar a "pílula" */
+    border-radius: 12px;  /* Deixa as bordas bem arredondadas */
+    font-size: 0.85em;      /* Tamanho da fonte um pouco menor */
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3); /* Sombra no texto para legibilidade */
+}

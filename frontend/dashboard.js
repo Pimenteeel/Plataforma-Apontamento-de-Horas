@@ -83,52 +83,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function carregarApontamentos() {
-        if (!contentArea) return;
-        fetch('http://127.0.0.1:5000/apontamentos', { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'sucesso') {
-                contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
-                if (data.apontamentos.length === 0) {
-                    contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
-                    return;
+    if (!contentArea) return;
+    fetch('http://127.0.0.1:5000/apontamentos', { headers: { 'Authorization': `Bearer ${token}` } })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'sucesso') {
+            contentArea.innerHTML = '<h2>Meus Apontamentos</h2>';
+            if (data.apontamentos.length === 0) {
+                contentArea.innerHTML += '<p>Nenhum apontamento encontrado.</p>';
+                return;
+            }
+            let dataAtual = "";
+            data.apontamentos.forEach(ap => {
+                const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
+                if (dataDoApontamento !== dataAtual) {
+                    dataAtual = dataDoApontamento;
+                    const headerDiv = document.createElement('h3');
+                    headerDiv.className = 'data-header';
+                    headerDiv.textContent = dataAtual;
+                    contentArea.appendChild(headerDiv);
                 }
-                let dataAtual = "";
-                data.apontamentos.forEach(ap => {
-                    const dataDoApontamento = new Date(ap.Data_Inicio).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
-                    if (dataDoApontamento !== dataAtual) {
-                        dataAtual = dataDoApontamento;
-                        const headerDiv = document.createElement('h3');
-                        headerDiv.className = 'data-header';
-                        headerDiv.textContent = dataAtual;
-                        contentArea.appendChild(headerDiv);
-                    }
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'apontamento-item';
-                    const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                    const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
-                    itemDiv.innerHTML = `
-                        <span class="apontamento-descricao">${ap.NomePilar} | ${ap.NomeProjeto} | ${ap.Descricao}</span>
-                        <span>${inicio} - ${fim}</span>
-                        <span class="apontamento-duracao" data-id="${ap.ID_Apontamento}">${ap.Duracao || 'Rodando...'}</span>
-                        <button class="apontamento-delete-btn" data-id="${ap.ID_Apontamento}"><i class="fas fa-trash-alt"></i></button>
-                    `;
-                    contentArea.appendChild(itemDiv);
-                });
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'apontamento-item';
+                const inicio = new Date(ap.Data_Inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const fim = ap.Data_Fim ? new Date(ap.Data_Fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...';
+                
+                // MUDANÇA PRINCIPAL: Usamos a função getColorForPillar e criamos uma span para a tag
+                itemDiv.innerHTML = `
+                    <span class="apontamento-descricao">
+                        <span class="pilar-tag" style="background-color: ${getColorForPillar(ap.NomePilar)}">${ap.NomePilar}</span> 
+                        | ${ap.NomeProjeto} | ${ap.Descricao}
+                    </span>
+                    <span>${inicio} - ${fim}</span>
+                    <span class="apontamento-duracao" data-id="${ap.ID_Apontamento}">${ap.Duracao || 'Rodando...'}</span>
+                    <button class="apontamento-delete-btn" data-id="${ap.ID_Apontamento}"><i class="fas fa-trash-alt"></i></button>
+                `;
+                contentArea.appendChild(itemDiv);
+            });
 
-                document.querySelectorAll('.apontamento-duracao').forEach(span => {
-                    if (span.textContent.trim() !== 'Rodando...') {
-                        span.addEventListener('click', function() { tornarEditavel(this); });
+            // Lógica para eventos de clique (edição e exclusão) continua a mesma
+            document.querySelectorAll('.apontamento-duracao').forEach(span => {
+                if (span.textContent.trim() !== 'Rodando...') {
+                    span.addEventListener('click', function() { tornarEditavel(this); });
+                }
+            });
+            document.querySelectorAll('.apontamento-delete-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    if (confirm("Tem certeza que deseja excluir este apontamento?")) {
+                        excluirApontamento(this.dataset.id);
                     }
                 });
-                document.querySelectorAll('.apontamento-delete-btn').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const apontamentoId = this.dataset.id;
-                        if (confirm("Tem certeza que deseja excluir este apontamento?")) {
-                            excluirApontamento(apontamentoId);
-                        }
-                    });
-                });
+            });
             } else {
                 contentArea.innerHTML = `<h2>Meus Apontamentos</h2><p style="color:red;">Erro: ${data.mensagem}</p>`;
             }
@@ -202,6 +207,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    function getColorForPillar(pillarName) {
+        // Um mapa que associa o nome do pilar a uma cor em formato RGBA (com transparência)
+        const pillarColors = {
+            'Atividades Recorrentes': 'rgba(108, 117, 125, 0.7)', // Cinza
+            'Pessoas': 'rgba(23, 162, 184, 0.7)',                // Ciano
+            'Ausência': 'rgba(255, 193, 7, 0.7)',                 // Amarelo
+            'Desenvolvimento de Produto': 'rgba(0, 123, 255, 0.7)', // Azul
+            'Suporte Técnico': 'rgba(220, 53, 69, 0.7)',           // Vermelho
+            'LCM': 'rgba(253, 126, 20, 0.7)',                    // Laranja
+            'OnePlan': 'rgba(40, 167, 69, 0.7)',                 // Verde
+            'DT²': 'rgba(111, 66, 193, 0.7)',                     // Roxo
+            'Digital First': 'rgba(52, 58, 64, 0.8)',             // Cinza Escuro
+        };
+        // Retorna a cor correspondente ou uma cor padrão se o pilar não for encontrado
+        return pillarColors[pillarName] || 'rgba(108, 117, 125, 0.7)';
+    }
+
     // --- 4. FUNÇÕES DO CRONÔMETRO, EDIÇÃO E PLANILHA ---
     function formatarTempo(segundos) {
         const h = Math.floor(segundos / 3600).toString().padStart(2, '0');
